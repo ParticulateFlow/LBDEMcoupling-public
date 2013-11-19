@@ -100,12 +100,22 @@ int main(int argc, char* argv[]) {
     OnLatticeBoundaryCondition3D<T,DESCRIPTOR>* boundaryCondition
         = createLocalBoundaryCondition3D<T,DESCRIPTOR>();
 
+    plint *id = new plint;
+    *id = 0;
+    T **x, **f, **t;
+    x = new T*[1]; x[0] = new T[3];
+    f = new T*[1]; f[0] = new T[3];
+    t = new T*[1]; t[0] = new T[3];
+
+    x[0][0] = nx/2; x[0][1] = ny/2; x[0][2] = nz/2;
     applyProcessingFunctional
-      (new SetSphere3D<T,DESCRIPTOR>(Array<T,3>(nx/2,ny/2,nz/2),Array<T,3>(0,0,0),Array<T,3>(0,0,1e-3),nx/8,1),
+      (new SetSphere3D<T,DESCRIPTOR>(Array<T,3>(x[0][0],x[0][1],x[0][2]),Array<T,3>(0,0,0),
+                                     Array<T,3>(0,0,1e-3),nx/8,*id),
        lattice.getBoundingBox(), lattice);
     
 
     clock_t start = clock();
+
 
     // Loop over main time iteration.
     for (plint iT=0; iT<parameters.nStep(maxT); ++iT) {
@@ -124,6 +134,15 @@ int main(int argc, char* argv[]) {
         start = clock();
       }
       
+      f[0][0] = 0;      f[0][1] = 0;      f[0][2] = 0;
+      t[0][0] = 0;      t[0][1] = 0;      t[0][2] = 0;
+
+      applyProcessingFunctional
+        (new SumForceTorque3D<T,DESCRIPTOR>(id,x,f,t),
+         lattice.getBoundingBox(), lattice);
+
+      pcout << "force: " << f[0][0] << " " << f[0][1] << " " << f[0][2] << " | ";
+      pcout << "torque: " << t[0][0] << " " << t[0][1] << " " << t[0][2] << std::endl;
       
         // Execute a time iteration.
       lattice.collideAndStream();
