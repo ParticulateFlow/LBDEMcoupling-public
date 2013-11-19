@@ -153,7 +153,6 @@ template<typename T, template<typename U> class Descriptor>
 
         for(int i=0;i<Descriptor<T>::d;i++) 
           force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;
-        //force[i] -= Descriptor<T>::c[iPop][i]*bounce;
       }
     }
    
