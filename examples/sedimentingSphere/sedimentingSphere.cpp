@@ -84,8 +84,8 @@ int main(int argc, char* argv[]) {
     const plint nz = parameters.getNx();
 
     const T maxT     = (T)10.0;
-    const T vtkT = 0.1;
-    const T gifT = 0.01;
+    const T vtkT = 0.05;
+    const T gifT = 0.05;
     const T logT = 0.01;
 
     writeLogFile(parameters, "3D sedimenting sphere");
@@ -102,15 +102,35 @@ int main(int argc, char* argv[]) {
 
     plint *id = new plint;
     *id = 0;
-    T **x, **f, **t;
+    T **x, **v, **f, **t, **omega;
+    T r = nx/8;
+    T rho = 1.01;
+    T m = 4./3.*r*r*r*3.14*rho;
+    T I = 2./5.*m*r*r;
     x = new T*[1]; x[0] = new T[3];
+    v = new T*[1]; v[0] = new T[3];
+    omega = new T*[1]; omega[0] = new T[3];
+
     f = new T*[1]; f[0] = new T[3];
     t = new T*[1]; t[0] = new T[3];
 
     x[0][0] = nx/2; x[0][1] = ny/2; x[0][2] = nz/2;
+    v[0][0] = 0; v[0][1] = 0; v[0][2] = 0;
+    omega[0][0] = 0; omega[0][1] = 0; omega[0][2] = 0;
+    
+    f[0][0] = 0; f[0][1] = 0; f[0][2] = 0;
+    t[0][0] = 0; t[0][1] = 0; t[0][2] = 0;
+
+    T g = 100;
+
+    T dt_dem = parameters.getDeltaT();
+
+
+    Array<T,3> x_(x[0][0],x[0][1],x[0][2]),v_(v[0][0],v[0][1],v[0][2]),
+      omega_(omega[0][0],omega[0][1],omega[0][2]);
+    
     applyProcessingFunctional
-      (new SetSphere3D<T,DESCRIPTOR>(Array<T,3>(x[0][0],x[0][1],x[0][2]),Array<T,3>(0,0,0),
-                                     Array<T,3>(0,0,1e-3),nx/8,*id),
+      (new SetSphere3D<T,DESCRIPTOR>(x_,v_,omega_,r,*id),
        lattice.getBoundingBox(), lattice);
     
 
@@ -119,6 +139,19 @@ int main(int argc, char* argv[]) {
 
     // Loop over main time iteration.
     for (plint iT=0; iT<parameters.nStep(maxT); ++iT) {
+
+      v[0][0] += 0.5*dt_dem*f[0][0]/m;
+      v[0][1] += 0.5*dt_dem*f[0][1]/m;
+      v[0][2] += 0.5*dt_dem*(f[0][2]-g)/m;
+
+      x[0][0] += v[0][0]*dt_dem + 0.5*f[0][0]*dt_dem*dt_dem/m;
+      x[0][1] += v[0][1]*dt_dem + 0.5*f[0][1]*dt_dem*dt_dem/m;
+      x[0][2] += v[0][2]*dt_dem + 0.5*(f[0][2]-g)*dt_dem*dt_dem/m;
+
+      omega[0][0] += 0.5*dt_dem*t[0][0]/I;
+      omega[0][1] += 0.5*dt_dem*t[0][1]/I;
+      omega[0][2] += 0.5*dt_dem*t[0][2]/I;
+
       if(iT%parameters.nStep(vtkT) == 0)
         writeVTK(lattice,parameters,iT);
 
@@ -132,20 +165,39 @@ int main(int argc, char* argv[]) {
         pcout << "time: " << time << " " ;
         pcout << "calculating at " << mlups << " MLU/s" << std::endl;
         start = clock();
+        pcout << "force: " << f[0][0] << " " << f[0][1] << " " << f[0][2] << " | ";
+        pcout << "torque: " << t[0][0] << " " << t[0][1] << " " << t[0][2] << std::endl;
+        pcout << x[0][0] << " " << x[0][1] << " " << x[0][2] << " | ";
+        pcout << v[0][0]
+              << " " << v[0][1] << " " << v[0][2] << " " << std::endl;
       }
       
       f[0][0] = 0;      f[0][1] = 0;      f[0][2] = 0;
       t[0][0] = 0;      t[0][1] = 0;      t[0][2] = 0;
+      
+      if(iT > 1) applyProcessingFunctional(new SumForceTorque3D<T,DESCRIPTOR>(id,x,f,t),
+                                           lattice.getBoundingBox(), lattice);
 
+      
+      Array<T,3> x_(x[0][0],x[0][1],x[0][2]),v_(v[0][0],v[0][1],v[0][2]),
+        omega_(omega[0][0],omega[0][1],omega[0][2]);
+    
       applyProcessingFunctional
-        (new SumForceTorque3D<T,DESCRIPTOR>(id,x,f,t),
+        (new SetSphere3D<T,DESCRIPTOR>(x_,v_,omega_,r,*id),
          lattice.getBoundingBox(), lattice);
 
-      pcout << "force: " << f[0][0] << " " << f[0][1] << " " << f[0][2] << " | ";
-      pcout << "torque: " << t[0][0] << " " << t[0][1] << " " << t[0][2] << std::endl;
-      
         // Execute a time iteration.
       lattice.collideAndStream();
+
+
+      v[0][0] += 0.5*dt_dem*f[0][0]/m;
+      v[0][1] += 0.5*dt_dem*f[0][1]/m;
+      v[0][2] += 0.5*dt_dem*(f[0][2]-g)/m;
+
+      omega[0][0] += 0.5*dt_dem*t[0][0]/I;
+      omega[0][1] += 0.5*dt_dem*t[0][1]/I;
+      omega[0][2] += 0.5*dt_dem*t[0][2]/I;
+
     }
 
     delete boundaryCondition;
