@@ -65,9 +65,9 @@ namespace plb{
 	
           if(solfrac > 0.001){
             *(cell.getExternal(partId_ind)) = (T)id;
-            *(cell.getExternal(ux_ind)) = v[0] + dy*omega[2] - dz*omega[1];
-            *(cell.getExternal(uy_ind)) = v[1] - dx*omega[2] + dz*omega[0];
-            *(cell.getExternal(uz_ind)) = v[2] + dx*omega[1] - dy*omega[0];
+            *(cell.getExternal(ux_ind)) = v[0] + omega[1]*dz - omega[2]*dy;
+            *(cell.getExternal(uy_ind)) = v[1] - omega[0]*dz + omega[2]*dx; 
+            *(cell.getExternal(uz_ind)) = v[2] + omega[0]*dy - omega[1]*dx;
           }
           else {
             *(cell.getExternal(partId_ind)) = (T)-1;
@@ -89,13 +89,14 @@ namespace plb{
     T sliceWidth = 1./((T)slicesPerDim-1);
     T fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
     
-    T r_sq = r*r;
 
     if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r+1)*(r+1))
       return 0;
 
     if (dx_*dx_ + dy_*dy_ + dz_*dz_ < (r-1)*(r-1))
       return 1;
+
+    T r_sq = r*r;
 
     dx_ = dx_ - 0.5;
     dy_ = dy_ - 0.5;
