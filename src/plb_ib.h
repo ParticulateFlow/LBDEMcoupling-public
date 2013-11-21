@@ -4,5 +4,6 @@
 #include "ibDynamics3D.h"
 #include "ibDescriptors3D.h"
 #include "ibProcessors3D.h"
+#include "physunits.h"
 
 #endif // PLB_IB_H
