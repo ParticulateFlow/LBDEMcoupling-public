@@ -2,6 +2,8 @@
  * ibProcessors3D.hh
  */
 
+#include "ibDef.h"
+
 namespace plb{
 
   /*
@@ -32,18 +34,20 @@ namespace plb{
 
   /* ---------------------------------------------------- */
 
+
   /*
-   * implementation of SetSphere3D
+   * implementation of SetSpheres3D
    */
+  template<typename T, template<typename U> class Descriptor>
+  T SetSpheres3D<T,Descriptor>::calcDistSqr(T x0, T y0, T z0, T x1, T y1, T z1)
+  {
+    T dx = x0-x1; T dy = y0-y1; T dz = z0-z1; 
+    return dx*dx + dy*dy + dz*dz;
+  }
 
   template<typename T, template<typename U> class Descriptor>
-  void SetSphere3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice)
+  void SetSpheres3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice)
   {
-    static plint
-      partId_ind = Descriptor<T>::ExternalField::particleIdBeginsAt,
-      ux_ind = Descriptor<T>::ExternalField::boundaryVelocityBeginsAt,
-      uy_ind = Descriptor<T>::ExternalField::boundaryVelocityBeginsAt+1,
-      uz_ind = Descriptor<T>::ExternalField::boundaryVelocityBeginsAt+2;
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -55,25 +59,40 @@ namespace plb{
           T yGlobal = (T) (relativePosition.y + iY);
           T zGlobal = (T) (relativePosition.z + iZ);
           
-          T dx = xGlobal - x[0];
-          T dy = yGlobal - x[1];
-          T dz = zGlobal - x[2];
+          T *sfPtr = cell.getExternal(Descriptor<T>::ExternalField::volumeFractionBeginsAt);
+          T *idPtr = cell.getExternal(Descriptor<T>::ExternalField::particleIdBeginsAt);
+          T *uPtr = cell.getExternal(Descriptor<T>::ExternalField::boundaryVelocityBeginsAt);
+
+          *idPtr = (T)-1;
+          uPtr[0] = 0;
+          uPtr[1] = 0;
+          uPtr[2] = 0;
+          *sfPtr = 0;
+
+          for(plint iP=0;iP<nSpheres;iP++){
+          
+            T dx = xGlobal - x[iP][0];
+            T dy = yGlobal - x[iP][1];
+            T dz = zGlobal - x[iP][2];
 	
-          T solfrac =  calcSolidFraction(dx,dy,dz);
-	
-          *(cell.getExternal(Descriptor<T>::ExternalField::volumeFractionBeginsAt)) = solfrac;
-	
-          if(solfrac > 0.001){
-            *(cell.getExternal(partId_ind)) = (T)id;
-            *(cell.getExternal(ux_ind)) = v[0] + omega[1]*dz - omega[2]*dy;
-            *(cell.getExternal(uy_ind)) = v[1] - omega[0]*dz + omega[2]*dx; 
-            *(cell.getExternal(uz_ind)) = v[2] + omega[0]*dy - omega[1]*dx;
-          }
-          else {
-            *(cell.getExternal(partId_ind)) = (T)-1;
-            *(cell.getExternal(ux_ind)) = 0.;
-            *(cell.getExternal(uy_ind)) = 0.;
-            *(cell.getExternal(uz_ind)) = 0.;
+           
+            distSqr[iP] = dx*dx+dy*dy+dz*dz;
+            if(dx*dx+dy*dy+dz*dz > (r[iP]+1)*(r[iP]+1))
+              continue;
+       
+            T sf = calcSolidFraction(dx,dy,dz,r[iP]);
+
+            if(sf > SOLFRAC_MIN){
+              plint ind(iP);
+              if(*sfPtr > SOLFRAC_MIN && distSqr[iP] > distSqr[(plint)*idPtr])
+                ind = *idPtr;
+              
+              *idPtr = (T)id[ind];
+              *sfPtr = sf;
+              uPtr[0] = v[ind][0] + omega[ind][1]*dz - omega[ind][2]*dy;
+              uPtr[1] = v[ind][1] - omega[ind][0]*dz + omega[ind][2]*dx; 
+              uPtr[2] = v[ind][2] + omega[ind][0]*dy - omega[ind][1]*dx;
+            } 
           }
         }
       }
@@ -82,7 +101,7 @@ namespace plb{
   }
 
   template<typename T, template<typename U> class Descriptor>
-  T SetSphere3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_)
+  T SetSpheres3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_, T r_)
   {
     plint const slicesPerDim = 5;
     
@@ -90,13 +109,13 @@ namespace plb{
     T fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
     
 
-    if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r+1)*(r+1))
+    if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r_+1)*(r_+1))
       return 0;
 
-    if (dx_*dx_ + dy_*dy_ + dz_*dz_ < (r-1)*(r-1))
+    if (dx_*dx_ + dy_*dy_ + dz_*dz_ < (r_-1)*(r_-1))
       return 1;
 
-    T r_sq = r*r;
+    T r_sq = r_*r_;
 
     dx_ = dx_ - 0.5;
     dy_ = dy_ - 0.5;
@@ -121,13 +140,13 @@ namespace plb{
   }
 
   template<typename T, template<typename U> class Descriptor>
-  SetSphere3D<T,Descriptor>* SetSphere3D<T,Descriptor>::clone() const
+  SetSpheres3D<T,Descriptor>* SetSpheres3D<T,Descriptor>::clone() const
   { 
-    return new SetSphere3D<T,Descriptor>(*this);
+    return new SetSpheres3D<T,Descriptor>(*this);
   }
 
   template<typename T, template<typename U> class Descriptor>
-  void SetSphere3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+  void SetSpheres3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
   {
     modified[0] = modif::nothing;
     modified[1] = modif::staticVariables;
@@ -175,7 +194,7 @@ namespace plb{
           T dx = xGlobal - x[id][0];
           T dy = yGlobal - x[id][1];
           T dz = zGlobal - x[id][2];
-          
+
           torque[id][0] += dy*forceZ - dz*forceY;
           torque[id][1] += -dx*forceZ + dz*forceX;
           torque[id][2] += dx*forceY - dy*forceX;

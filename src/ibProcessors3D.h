@@ -19,24 +19,38 @@ namespace plb{
     int scalar;
   }; 
 
+
   template<typename T, template<typename U> class Descriptor>
-  struct SetSphere3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
+  struct SetSpheres3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
-    SetSphere3D(Array<T,3> x_, Array<T,3> v_, Array<T,3> omega_, T r_, plint id_)
-      : x(x_),v(v_),omega(omega_),r(r_),id(id_) {}
+    SetSpheres3D(T **x_, T **v_, T **omega_, T *r_, plint *id_, plint nSpheres_)
+      : x(x_),v(v_),omega(omega_),r(r_),id(id_),nSpheres(nSpheres_) 
+    {
+      distSqr = new T[nSpheres];
+    }
+    SetSpheres3D(const SetSpheres3D &orig)
+      : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),id(orig.id),nSpheres(orig.nSpheres)
+    {
+      distSqr = new T[nSpheres];
+    }
 
+    ~SetSpheres3D()
+    {
+      delete[] distSqr;
+    }
     void process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice);
-    T calcSolidFraction(T dx_, T dy_, T dz_);
 
-    SetSphere3D<T,Descriptor>* clone() const;
+    SetSpheres3D<T,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
   private:
-    Array<T,3> x,v,omega;
-    T r;
-    plint id;
+    T calcSolidFraction(T dx_, T dy_, T dz_, T r_);
+    T calcDistSqr(T x0, T y0, T z0, T x1, T y1, T z1);
+    T **x,**v,**omega;
+    T *r;
+    plint *id, nSpheres;
+    T *distSqr;
     
   };
-
   template<typename T, template<typename U> class Descriptor>
   struct SumForceTorque3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
