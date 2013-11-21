@@ -108,8 +108,13 @@ int main(int argc, char* argv[]) {
     
     const T maxT = (T)10.0;
     const T vtkT = 0.05;
-    const T gifT = 0.01;
-    const T logT = 0.001;
+    const T gifT = 100;
+    const T logT = 0.01;
+
+    const plint maxSteps = units.getLbSteps(maxT);
+    const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
+    const plint gifSteps = units.getLbSteps(gifT);
+    const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
     writeLogFile(parameters, "3D sedimenting sphere");
 
@@ -135,30 +140,32 @@ int main(int argc, char* argv[]) {
     pcout << "omega: " << parameters.getOmega() << "\n" 
           << "dt_dem: " << dt_dem << "\n"
           << "Re : " << parameters.getRe() << std::endl;
-
-    Array<T,3> x_(units.getLbLength(x[0][0]),
-                  units.getLbLength(x[0][1]),
-                  units.getLbLength(x[0][2]));
-    Array<T,3> v_(units.getLbVel(v[0][0]),
-                  units.getLbVel(v[0][1]),
-                  units.getLbVel(v[0][2]));
-    Array<T,3> omega_(units.getLbFreq(omega[0][0]),
-                  units.getLbFreq(omega[0][1]),
-                  units.getLbFreq(omega[0][2]));
-
     
+    T **x_lb, **v_lb, **omega_lb;
+    x_lb = new T*[1]; x_lb[0] = new T[3];
+    v_lb = new T*[1]; v_lb[0] = new T[3];
+    omega_lb = new T*[1]; omega_lb[0] = new T[3];
+    T r_lb = units.getLbLength(r);
+
+    for(plint i=0;i<3;i++){
+      x_lb[0][i] = units.getLbLength(x[0][i]);
+      v_lb[0][i] = units.getLbVel(v[0][i]);
+      omega_lb[0][i] = units.getLbFreq(omega[0][i]);
+    }
+
     applyProcessingFunctional
-      (new SetSphere3D<T,DESCRIPTOR>(x_,v_,omega_,units.getLbLength(r),*id),
+      (new SetSpheres3D<T,DESCRIPTOR>(x_lb,v_lb,omega_lb,&r_lb,id,1),
        lattice.getBoundingBox(), lattice);
     
 
-    clock_t start = clock();
 
+
+    clock_t start = clock();    
 
     // Loop over main time iteration.
     //    for (plint iT=0; iT<parameters.nStep(maxT); ++iT) {
     pcout << units.getLbSteps(0.01) << std::endl;
-    for (plint iT=0; iT<units.getLbSteps(maxT); ++iT) {
+    for (plint iT=0; iT<maxSteps; ++iT) {
 
       v[0][0] += 0.5*dt_dem*f[0][0]/m;
       v[0][1] += 0.5*dt_dem*f[0][1]/m;
@@ -173,26 +180,40 @@ int main(int argc, char* argv[]) {
       omega[0][2] += 0.5*dt_dem*t[0][2]/I;
 
       //      if(iT%parameters.nStep(vtkT) == 0)
-      if(iT%units.getLbSteps(vtkT) == 0)
+      if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,iT);
 
       //      if(iT%parameters.nStep(gifT) == 0)
-      if(iT%units.getLbSteps(gifT) == 0)
+      if(iT%gifSteps == 0)
         writeGif(lattice,iT);
       
       for(int i=0;i<3;i++){
         f[0][i] = 0; t[0][i] = 0;
       }
+      
+      
+      for(plint i=0;i<3;i++){
+        x_lb[0][i] = units.getLbLength(x[0][i]);
+        v_lb[0][i] = units.getLbVel(v[0][i]);
+        omega_lb[0][i] = units.getLbFreq(omega[0][i]);
+      }
+      
+      applyProcessingFunctional
+        (new SetSpheres3D<T,DESCRIPTOR>(x_lb,v_lb,omega_lb,&r_lb,id,1),
+         lattice.getBoundingBox(), lattice);
 
+      lattice.collideAndStream();
+      
+      
       if(iT > 1) 
-        applyProcessingFunctional(new SumForceTorque3D<T,DESCRIPTOR>(id,x,f,t),
+        applyProcessingFunctional(new SumForceTorque3D<T,DESCRIPTOR>(id,x_lb,f,t),
                                   lattice.getBoundingBox(), lattice);
       for(int i=0;i<3;i++){
         f[0][i] = units.getPhysForce(f[0][i]);
         t[0][i] = units.getPhysTorque(t[0][i]);
       }
 
-      if(iT%max<plint>(1,units.getLbSteps(logT)) == 0){
+      if(iT%logSteps == 0){
         clock_t end = clock();
         T time = difftime(end,start)/((T)CLOCKS_PER_SEC);
         T mlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*units.getLbSteps(logT)))/time/1e6;
@@ -206,23 +227,6 @@ int main(int argc, char* argv[]) {
         pcerr << t[0][0] << " " << t[0][1] << " " << t[0][2] << std::endl;
       }
       
-      
-      Array<T,3> x_(units.getLbLength(x[0][0]),
-                    units.getLbLength(x[0][1]),
-                    units.getLbLength(x[0][2]));
-      Array<T,3> v_(units.getLbVel(v[0][0]),
-                    units.getLbVel(v[0][1]),
-                    units.getLbVel(v[0][2]));
-      Array<T,3> omega_(units.getLbFreq(omega[0][0]),
-                        units.getLbFreq(omega[0][1]),
-                        units.getLbFreq(omega[0][2]));
-    
-      applyProcessingFunctional
-        (new SetSphere3D<T,DESCRIPTOR>(x_,v_,omega_,units.getLbLength(r),*id),
-         lattice.getBoundingBox(), lattice);
-
-        // Execute a time iteration.
-      lattice.collideAndStream();
 
 
       v[0][0] += 0.5*dt_dem*f[0][0]/m;
