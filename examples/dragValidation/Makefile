@@ -20,9 +20,9 @@ palabosRoot   = ${PALABOS_ROOT}
 projectFiles = dragValidation.cpp
 
 # Set optimization flags on/off
-optimize     = true
+optimize     = false
 # Set debug mode and debug flags on/off
-debug        = false
+debug        = true
 # Set profiling flags on/off
 profile      = false
 # Set MPI-parallel mode on/off (parallelism in cluster-like environment)
