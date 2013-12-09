@@ -107,10 +107,13 @@ template<typename T, template<typename U> class Descriptor>
     for(int i=0;i<Descriptor<T>::d;i++) uPart[i] /= invRho;
 
     T uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
-    T B = solidFraction;//*(1./omega-0.5)/(0.5 - solidFraction + 1./omega);
+    T B = solidFraction;
+    //T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
+    externalScalars[Descriptor<T>::ExternalField::bBeginsAt] = B;
 
     if(B > 0.999){ // then we have pure solid and do not need any collision
       for(int iPop=1,iOpposite=Descriptor<T>::q/2+1;iPop <= Descriptor<T>::q/2;iPop++,iOpposite++){
+    
         T bias = 
           dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium 
 	  (iPop, rhoBar, invRho, uPart, uPartSqr ) -
@@ -118,16 +121,29 @@ template<typename T, template<typename U> class Descriptor>
 	  (iOpposite, rhoBar, invRho, uPart, uPartSqr );
 	
         T bounce = 0.5*(f[iOpposite] - f[iPop] + bias);
+
+        //      std::cout << global::mpi().getRank() << " | "
+        // std::cout << iPop << " " << iOpposite << " | " 
+        //           << Descriptor<T>::c[iPop][0]  
+        //           << Descriptor<T>::c[iPop][1]  
+        //           << Descriptor<T>::c[iPop][2] << " | " 
+        //           << Descriptor<T>::c[iOpposite][0]  
+        //           << Descriptor<T>::c[iOpposite][1]  
+        //           << Descriptor<T>::c[iOpposite][2] << " | " 
+        //           << f[iPop] << " " << f[iOpposite] << " | " 
+        //           << bounce << "  --> ";
         
         f[iPop] += bounce;
         f[iOpposite] -= bounce;
         
+        //std::cout << f[iPop] << " " << f[iOpposite] << std::endl;
+
         for(int i=0;i<Descriptor<T>::d;i++) 
-          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;	
+          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;
       }
     } else{
       T omega_1minB = omega*(1.-B);
-      
+
       f[0] -= 
 	omega_1minB*( f[0] - 
 		      dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium (0, rhoBar, invRho, j, jSqr ) );
@@ -155,7 +171,7 @@ template<typename T, template<typename U> class Descriptor>
           force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;
       }
     }
-   
+    // std::cout << std::endl;
     return jSqr*invRho*invRho;
 
   }

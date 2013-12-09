@@ -20,24 +20,30 @@ namespace plb {
 
     T getRe() const {return Re; };
 
-    T getLbLength(T physL) { return physL / l_p / param.getDeltaX(); };
-    T getLbVel(T physVel) { return physVel / u_p * param.getLatticeU(); };
-    T getLbTime(T physTime) { return physTime / t_p / param.getDeltaT(); };
-    T getLbAccel(T physAccel) { return physAccel * (t_p*t_p/l_p)
+    T getLbLength(T physL) const { return physL / l_p / param.getDeltaX() ; };
+    T getLbVel(T physVel) const { return physVel / u_p * param.getLatticeU(); };
+    T getLbTime(T physTime) const { return physTime / t_p / param.getDeltaT(); };
+    T getLbDensity(T lbDensity) const { return lbDensity / rho_p; };
+    T getLbAccel(T physAccel) const { return physAccel * (t_p*t_p/l_p)
         * (param.getDeltaT()*param.getDeltaT()/param.getDeltaX()); };
-    T getLbFreq(T physFreq) { return physFreq * t_p * param.getDeltaT(); };
-    plint getLbSteps(T physTime) { return (plint) (physTime/param.getDeltaT()/t_p + 0.5); };
-
-    T getPhysLength(T lbLength) { return lbLength*param.getDeltaX()*l_p; };
-    T getPhysVel(T lbVel) { return lbVel/param.getLatticeU()*u_p; };
-    T getPhysTime(T lbTime) { return lbTime*param.getDeltaT()*t_p; };
-    T getPhysAccel(T lbAccel) { return lbAccel 
+    T getLbFreq(T physFreq) const { return physFreq * t_p * param.getDeltaT(); };
+    plint getLbSteps(T physTime) const { return (plint) (physTime/param.getDeltaT()/t_p + 0.5); };
+    T getLbRho(T physPress, T pOffset = 0) const { return (physPress - pOffset) *3. 
+        / getPhysForce(1) * pow(getPhysLength(1),2); };
+    
+    T getPhysLength(T lbLength) const { return lbLength*param.getDeltaX()*l_p; };
+    T getPhysVel(T lbVel) const { return lbVel/param.getLatticeU()*u_p; };
+    T getPhysTime(T lbTime) const { return lbTime*param.getDeltaT()*t_p; };
+    T getPhysDensity(T lbDensity) const { return lbDensity * rho_p; };
+    T getPhysAccel(T lbAccel) const { return lbAccel 
         / (param.getDeltaT()*param.getDeltaT()/param.getDeltaX())
         / (l_p/t_p/t_p); };    
-    T getPhysForce(T lbForce) { return lbForce * pow(param.getDeltaX(),4)/pow(param.getDeltaT(),2)
+    T getPhysForce(T lbForce) const { return lbForce * pow(param.getDeltaX(),4)/pow(param.getDeltaT(),2)
         * rho_p * pow(l_p,4)/pow(t_p,2); };
-    T getPhysTorque(T lbTorque) { return lbTorque * pow(param.getDeltaX(),5)/pow(param.getDeltaT(),2)
+    T getPhysTorque(T lbTorque) const { return lbTorque * pow(param.getDeltaX(),5)/pow(param.getDeltaT(),2)
         * rho_p * pow(l_p,5)/pow(t_p,2); };
+    T getPhysPress(T lbRho, T pOffset = 0) const { return (lbRho - 1.) / 3. * getPhysForce(1) 
+        / pow(getPhysLength(1),2) + pOffset; };
 
 
     const IncomprFlowParam<T>& getLbParam() const
