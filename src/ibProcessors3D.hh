@@ -83,13 +83,12 @@ namespace plb{
           uPtr[2] = 0;
           *sfPtr = 0;
 
+          
           for(plint iP=0;iP<nSpheres;iP++){
           
             T dx = xGlobal - x[iP][0];
             T dy = yGlobal - x[iP][1];
             T dz = zGlobal - x[iP][2];
-	
-           
             distSqr[iP] = dx*dx+dy*dy+dz*dz;
             if(dx*dx+dy*dy+dz*dz > (r[iP]+1)*(r[iP]+1))
               continue;
@@ -106,20 +105,24 @@ namespace plb{
             T sf = calcSolidFraction(dx,dy,dz,r[iP]);
 
             if(sf > SOLFRAC_MIN){
+            // pcerr << iX << " " << iY << " " << iZ << " | " << iP << " | " 
+            //       << dx << " " << dy << " " << dz << std::endl;
+           
               plint ind(iP);
-              if(*sfPtr > SOLFRAC_MIN && distSqr[iP] > distSqr[(plint)*idPtr])
-                ind = *idPtr;
-              
-              *idPtr = (T)id[ind];
-              *sfPtr = sf;
-              uPtr[0] = v[ind][0] + omega[ind][1]*dz - omega[ind][2]*dy;
-              uPtr[1] = v[ind][1] - omega[ind][0]*dz + omega[ind][2]*dx; 
-              uPtr[2] = v[ind][2] + omega[ind][0]*dy - omega[ind][1]*dx;
-              // uPtr[0] = v[ind][0];
-              // uPtr[1] = v[ind][1];
-              // uPtr[2] = v[ind][2];
+              if(*sfPtr > SOLFRAC_MIN && distSqr[iP] > distSqr[((plint)*idPtr)-1]) // LIGGGHTS ids start at 1
+                ind = ((plint)*idPtr)-1;
 
-              
+              *idPtr = (T)id[0][ind];
+              *sfPtr = sf;
+              uPtr[0] = v[ind][0];
+              uPtr[1] = v[ind][1];
+              uPtr[2] = v[ind][2];
+              // if(omega != 0){
+              //   uPtr[0] += omega[ind][1]*dz - omega[ind][2]*dy;
+              //   uPtr[1] += omega[ind][0]*dz + omega[ind][2]*dx; 
+              //   uPtr[2] += omega[ind][0]*dy - omega[ind][1]*dx;
+              // }
+
             } 
           }
         }
@@ -164,7 +167,7 @@ namespace plb{
         }
       }
     }
-    return solFrac>0.5 ? 1. : 0.;
+    return solFrac;//solFrac>0.5 ? 1. : 0.;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -198,7 +201,7 @@ namespace plb{
      */
     for(plint i=0;i<6*nPart_;i++)
       sumId.push_back(this->getStatistics().subscribeSum());
-
+    pcout << "asdfasdfasdfadsf " << sumId.size() << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -233,7 +236,8 @@ namespace plb{
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
                     
-          plint id = (plint) (*(cell.getExternal(pid)));
+          // LIGGGHTS indices start at 1
+          plint id = (plint) (*(cell.getExternal(pid)))-1;
           if(id < 0) continue; // no particle here
           
           //Dot3D relativePosition = lattice.getLocation();
@@ -246,19 +250,20 @@ namespace plb{
           T forceX = fs*(*(cell.getExternal(fx)));
           T forceY = fs*(*(cell.getExternal(fy)));
           T forceZ = fs*(*(cell.getExternal(fz)));
+          // if(id == 1)
+          //   pcerr << id << " " << forceX << " " << forceY << " " << forceZ << std::endl;
 
           T dx = xGlobal - x[id][0];
           T dy = yGlobal - x[id][1];
           T dz = zGlobal - x[id][2];
 
-          s+=forceX;
           addForce(id,0,forceX);
           addForce(id,1,forceY);
           addForce(id,2,forceZ);
 
-          addTorque(id,0,dy*forceZ - dz*forceY);
-          addTorque(id,1,-dx*forceZ + dz*forceX);
-          addTorque(id,2,dx*forceY - dy*forceX);
+          // addTorque(id,0,dy*forceZ - dz*forceY);
+          // addTorque(id,1,-dx*forceZ + dz*forceX);
+          // addTorque(id,2,dx*forceY - dy*forceX);
         }
       }
     }
@@ -268,12 +273,14 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addForce(plint partId, plint coord, T value)
   {
-    this->getStatistics().gatherSum(sumId[6*partId+coord],value);
+    plint which = sumId[6*(partId)+coord];
+    this->getStatistics().gatherSum(which,value);
   }
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addTorque(plint partId, plint coord, T value)
   {
-    this->getStatistics().gatherSum(sumId[6*partId+coord+3],value);
+    plint which = sumId[6*(partId)+coord+3];
+    this->getStatistics().gatherSum(which,value);
   }
 
   template<typename T, template<typename U> class Descriptor>

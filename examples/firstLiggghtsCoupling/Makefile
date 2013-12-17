@@ -35,11 +35,12 @@ SMPparallel  = false
 usePOSIX     = true
 
 # Path to external libraries (other than Palabos)
-libraryPaths =
+libraryPaths = /home/phil/liggghts/liggghts-pfm/LIGGGHTS-3-beta-PFM/src
 # Path to inlude directories (other than Palabos)
-includePaths = ../../src/ 
+includePaths = ../../src/ /home/phil/liggghts/liggghts-pfm/LIGGGHTS-3-beta-PFM/src
 # Dynamic and static libraries (other than Palabos)
-libraries    = 
+#libraries    = liblmp_fedora-debug.a
+libraries    = liblmp_fedora.a
 
 # Compiler to use without MPI parallelism
 serialCXX    = g++

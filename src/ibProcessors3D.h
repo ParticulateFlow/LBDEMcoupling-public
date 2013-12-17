@@ -23,7 +23,12 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   struct SetSpheres3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
-    SetSpheres3D(T **x_, T **v_, T **omega_, T *r_, plint *id_, plint nSpheres_)
+    SetSpheres3D(T **x_, T **v_, T *r_, int **id_, plint nSpheres_)
+      : x(x_),v(v_),omega(0),r(r_),id(id_),nSpheres(nSpheres_) 
+    {
+      distSqr = new T[nSpheres];
+    }
+    SetSpheres3D(T **x_, T **v_, T **omega_, T *r_, int **id_, plint nSpheres_)
       : x(x_),v(v_),omega(omega_),r(r_),id(id_),nSpheres(nSpheres_) 
     {
       distSqr = new T[nSpheres];
@@ -32,6 +37,8 @@ namespace plb{
       : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),id(orig.id),nSpheres(orig.nSpheres)
     {
       distSqr = new T[nSpheres];
+      for(plint i=0;i<nSpheres;i++)
+        distSqr[i] = orig.distSqr[i];
     }
 
     ~SetSpheres3D()
@@ -47,7 +54,8 @@ namespace plb{
     T calcDistSqr(T x0, T y0, T z0, T x1, T y1, T z1);
     T **x,**v,**omega;
     T *r;
-    plint *id, nSpheres;
+    int **id;
+    plint nSpheres;
     T *distSqr;
     
   };
