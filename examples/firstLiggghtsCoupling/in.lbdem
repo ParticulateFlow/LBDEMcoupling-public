@@ -43,16 +43,16 @@ fix zwalls1 all wall/gran model hertz tangential history primitive type 1 zplane
 fix zwalls2 all wall/gran model hertz tangential history primitive type 1 zplane 0.6
 print "bar"
 #lattice sc 1
-#create_atoms 1 single 0.1 0.1 0.35
+create_atoms 1 single 0.1 0.1 0.35
 #create_atoms 1 single 0.1 0.1 0.29
-#set group all diameter 0.05 density 1100
+set group all diameter 0.05 density 1100
 
-region		insreg block 0.01 0.19 0.01 0.19 0.41 0.59 units box
+# region		insreg block 0.01 0.19 0.01 0.19 0.41 0.59 units box
 
-fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 1100 radius constant 0.01 
-fix pdd1 all particledistribution/discrete 6778  1 pts1 1.0
-fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once overlapcheck yes &
- volumefraction_region 0.1 region insreg ntry_mc 10000 
+# fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 1100 radius constant 0.01 
+# fix pdd1 all particledistribution/discrete 6778  1 pts1 1.0
+# fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once overlapcheck yes &
+#  volumefraction_region 0.1 region insreg ntry_mc 10000 
 
 run 1
 # run 10

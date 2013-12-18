@@ -93,20 +93,10 @@ namespace plb{
             if(dx*dx+dy*dy+dz*dz > (r[iP]+1)*(r[iP]+1))
               continue;
 
-            // std::cout << global::mpi().getRank() << " | " 
-            //           << xGlobal << " "
-            //           << yGlobal << " "
-            //           << zGlobal << " | "
-            //           << dx << " "
-            //           << dy << " "
-            //           << dz << std::endl;
-
        
             T sf = calcSolidFraction(dx,dy,dz,r[iP]);
 
             if(sf > SOLFRAC_MIN){
-            // pcerr << iX << " " << iY << " " << iZ << " | " << iP << " | " 
-            //       << dx << " " << dy << " " << dz << std::endl;
            
               plint ind(iP);
               if(*sfPtr > SOLFRAC_MIN && distSqr[iP] > distSqr[((plint)*idPtr)-1]) // LIGGGHTS ids start at 1

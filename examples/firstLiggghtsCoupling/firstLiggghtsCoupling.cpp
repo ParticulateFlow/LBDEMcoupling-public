@@ -257,10 +257,11 @@ int main(int argc, char* argv[]) {
         }
       }
       pcerr << std::endl;
-      
-      applyProcessingFunctional
-        (new SetSpheres3D<T,DESCRIPTOR>(x_lb,v_lb,r_lb,id,nAtoms),
-         lattice.getBoundingBox(), lattice);
+      double **omega = 0;
+      setSpheresOnLattice(lattice,x_lb,v_lb,omega,r_lb,id,nAtoms);
+      // applyProcessingFunctional
+      //   (new SetSpheres3D<T,DESCRIPTOR>(x_lb,v_lb,r_lb,id,nAtoms),
+      //    lattice.getBoundingBox(), lattice);
     
       if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,units,iT);
