@@ -25,34 +25,36 @@ fix 		m5 all property/global coefficientRollingFriction peratomtypepair 1 0.020
 # fix cfd coupling
 fix		cfd all couple/cfd couple_every 10 mpi
 fix		cfd2 all couple/cfd/force
-print "asdf"
+
 pair_style	gran model hertz tangential history rolling_friction cdt
 pair_coeff	* *
-print "qwert"
+
 fix		1 all nve/sphere
 
 #timestep 1e-4
-print "yxcv"
-fix grav all gravity 0.981 vector 0.0 0.0 -1.0
-print "foo"
+
+#fix grav all gravity 0.981 vector 0.0 0.0 -1.0
+# 30deg incline
+fix grav all gravity 0.981 vector 0.0 0.5 -0.86603
+
 fix xwalls1 all wall/gran model hertz tangential history primitive type 1 xplane 0.
 fix xwalls2 all wall/gran model hertz tangential history primitive type 1 xplane 0.2
 fix ywalls1 all wall/gran model hertz tangential history primitive type 1 yplane 0.
 fix ywalls2 all wall/gran model hertz tangential history primitive type 1 yplane 0.2
 fix zwalls1 all wall/gran model hertz tangential history primitive type 1 zplane 0.
 fix zwalls2 all wall/gran model hertz tangential history primitive type 1 zplane 0.6
-print "bar"
+
 #lattice sc 1
-create_atoms 1 single 0.1 0.1 0.35
+#create_atoms 1 single 0.1 0.1 0.35
 #create_atoms 1 single 0.1 0.1 0.29
-set group all diameter 0.05 density 1100
+#set group all diameter 0.05 density 1100
 
-# region		insreg block 0.01 0.19 0.01 0.19 0.41 0.59 units box
+region		insreg block 0.01 0.19 0.01 0.19 0.01 0.59 units box
 
-# fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 1100 radius constant 0.01 
-# fix pdd1 all particledistribution/discrete 6778  1 pts1 1.0
-# fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once overlapcheck yes &
-#  volumefraction_region 0.1 region insreg ntry_mc 10000 
+fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 1100 radius constant 0.01 
+fix pdd1 all particledistribution/discrete 6778  1 pts1 1.0
+fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once overlapcheck yes &
+ volumefraction_region 0.2 region insreg ntry_mc 10000 
 
 run 1
 # run 10

@@ -74,17 +74,7 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
      lattice.getBoundingBox(), lattice, tmp);
   vtkOut.writeData<float>(tmp, "PartId", 1.);
-  applyProcessingFunctional
 
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "fx", 1.);
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "fy", 1.);
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "fz", 1.);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -172,7 +162,7 @@ int main(int argc, char* argv[]) {
 
     
     
-    const T maxT = (T)15.0;
+    const T maxT = (T)4.0;
     const T vtkT = 0.05;
     const T gifT = 100;
     const T logT = 0.05;
