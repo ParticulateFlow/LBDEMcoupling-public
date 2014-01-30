@@ -144,6 +144,13 @@ namespace plb{
     }
     *sfPtr = sf;
     *idPtr = (T) id;
+    //bool initVelFlag = false;
+    if(initVelFlag && sf > SOLFRAC_MAX){
+      Array<T,3> u(uPtr[0],uPtr[1],uPtr[2]);
+      T uSqr = uPtr[0]+uPtr[0] + uPtr[1]+uPtr[1] + uPtr[2]+uPtr[2];
+      for(plint i=0;i<Descriptor<T>::q;i++)
+        c[i] = c.computeEquilibrium(i,0.,u,uSqr);
+    }
   }
   
   template<typename T, template<typename U> class Descriptor>

@@ -108,8 +108,9 @@ template<typename T, template<typename U> class Descriptor>
     for(int i=0;i<Descriptor<T>::d;i++) uPart[i] /= invRho;
 
     T uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
-    T B = solidFraction;
-    //T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
+    //T B = solidFraction;
+    T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
+    //T B = solidFraction*(omega-0.5)/((1.- solidFraction) + (omega-0.5));
     externalScalars[Descriptor<T>::ExternalField::bBeginsAt] = B;
 
     if(B > SOLFRAC_MAX){ // then we have pure solid and do not need any collision
@@ -140,7 +141,7 @@ template<typename T, template<typename U> class Descriptor>
         // std::cout << f[iPop] << " " << f[iOpposite] << std::endl;
 
         for(int i=0;i<Descriptor<T>::d;i++) 
-          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;
+          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce/B; // make force independent of b
         // std::cout << std::endl;
 
       }
@@ -171,7 +172,7 @@ template<typename T, template<typename U> class Descriptor>
         f[iOpposite] -= omega_1minB*deltaFCollOp;    f[iOpposite] -= bounce;
 
         for(int i=0;i<Descriptor<T>::d;i++) 
-          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;
+          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce/B;
       }
     }
     return jSqr*invRho*invRho;

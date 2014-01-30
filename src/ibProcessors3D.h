@@ -22,10 +22,12 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   struct SetSingleSphere3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
+    SetSingleSphere3D(T *x_, T *v_, T *omega_, T r_, int id_, bool initVelFlag_)
+      : x(x_),v(v_),omega(omega_),r(r_),id(id_), initVelFlag(initVelFlag_) {}
     SetSingleSphere3D(T *x_, T *v_, T *omega_, T r_, int id_)
-      : x(x_),v(v_),omega(omega_),r(r_),id(id_) {}
+      : x(x_),v(v_),omega(omega_),r(r_),id(id_), initVelFlag(false) {}
     SetSingleSphere3D(T *x_, T *v_, T r_, int id_)
-      : x(x_),v(v_),omega(0),r(r_),id(id_) {}
+      : x(x_),v(v_),omega(0),r(r_),id(id_), initVelFlag(false) {}
     SetSingleSphere3D(const SetSingleSphere3D &orig)
       : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),id(orig.id) {}
 
@@ -43,6 +45,7 @@ namespace plb{
   private:
     T *x,*v,*omega,r;
     int id;
+    bool initVelFlag;
     T calcSolidFraction(T dx_, T dy_, T dz_, T r_);
     void setValues(Cell<T,Descriptor>& c, T sf, T dx, T dy, T dz);
     void setToZero(Cell<T,Descriptor>& c);
@@ -50,13 +53,13 @@ namespace plb{
   
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
-                           T **x, T **v, T **omega, T *r, int **id, plint nSpheres)
+                           T **x, T **v, T **omega, T *r, int **id, plint nSpheres, bool initVelFlag)
   {
     for(plint iS=0;iS<nSpheres;iS++){
       SetSingleSphere3D<T,Descriptor> *sss 
-        = new SetSingleSphere3D<T,Descriptor>(x[iS],v[iS],omega==0 ? 0 : omega[iS],r[iS],id[0][iS]);
+        = new SetSingleSphere3D<T,Descriptor>(x[iS],v[iS],
+                                              omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
       applyProcessingFunctional(sss,sss->getBoundingBox(),lattice);
-      //delete sss;
     }
   }
 
