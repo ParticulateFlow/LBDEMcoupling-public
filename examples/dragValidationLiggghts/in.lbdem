@@ -29,27 +29,14 @@ fix		cfd2 all couple/cfd/force
 pair_style	gran model hertz tangential history rolling_friction cdt
 pair_coeff	* *
 
-fix		1 all nve/sphere
+#fix		1 all nve/sphere
 
 #timestep 1e-4
 
-fix grav all gravity 0.981 vector -1.0 0.0 0.0
-# 30deg incline
-#fix grav all gravity 0.981 vector 0.0 0.5 -0.86603
-
-
 #lattice sc 1
-create_atoms 1 single 0.34 0.1 0.1
-#create_atoms 1 single 0.1 0.1 0.35
-#create_atoms 1 single 0.1 0.1 0.29
+create_atoms 1 single 0.2 0.1 0.1
+
 set group all diameter 0.05 density 1100
-
-# region		insreg block 0.01 0.19 0.01 0.19 0.01 0.59 units box
-
-# fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 1100 radius constant 0.01 
-# fix pdd1 all particledistribution/discrete 6778  1 pts1 1.0
-# fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once overlapcheck yes &
-#  volumefraction_region 0.2 region insreg ntry_mc 10000 
 
 run 1
 # run 10

@@ -99,16 +99,17 @@ int main(int argc, char* argv[]) {
     plbInit(&argc, &argv);
     global::directories().setOutputDir("./tmp/");
 
-    if (argc != 3) {
+    if (argc < 3) {
         pcout << "Error the parameters are wrong. The structure must be :\n";
         pcout << "1 : N\n";
-        pcout << "2 : uMax\n";
+        pcout << "2 : uIn\n";
         exit(1);
     }
-
+   
     const plint N = atoi(argv[1]);
-    const T uMax = atof(argv[2]);
+    const T uIn = atof(argv[2]);
 
+    const T uMax = argc > 3 ? atof(argv[3]) : 0.02;
     const T rho_f = 1000;
 
     char **argv_lmp = 0;
@@ -135,7 +136,7 @@ int main(int argc, char* argv[]) {
     const T nu_f = 1e-4;
 
 
-    const T lx = 0.4, ly = 0.2, lz = 0.2;
+    const T lx = 0.6, ly = 0.2, lz = 0.2;
 
 
 
@@ -146,24 +147,23 @@ int main(int argc, char* argv[]) {
      
 
     T r_ = r[0][0];
-    T rho_s = 1100.;
-    T m = r_*r_*r_*4./3.*3.14*rho_s;
 
-    T v_inf = 2.*(rho_s-rho_f)/rho_f*g*r_*r_/9./nu_f; // stokes
-
-    pcout << "v_inf: " << v_inf << " m: " << m << " r: " << r_ << std::endl;
-
-
-    PhysUnits3D<T> units(2.*r_,v_inf,nu_f,lx,ly,lz,N,uMax,rho_f);
+    PhysUnits3D<T> units(2.*r_,uIn,nu_f,lx,ly,lz,N,uMax,rho_f);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
+    T Re = parameters.getRe();
+
+    T c_drag_th = 24./Re*(1 + 0.15*pow(Re,0.687)) ; // schiller-naumann
+
+    plint nx=parameters.getNx(),
+      ny=parameters.getNy(),
+      nz=parameters.getNz();
     
-    
-    const T maxT = (T)0.6;
-    const T vtkT = 0.001;
+    const T maxT = (T)30.;
+    const T vtkT = 100;
     const T gifT = 100;
-    const T logT = 0.05;
+    const T logT = 0.005;
 
     const plint maxSteps = units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
@@ -176,12 +176,28 @@ int main(int argc, char* argv[]) {
         parameters.getNx(), parameters.getNy(), parameters.getNz(), 
         new DYNAMICS );
 
-    lattice.periodicity().toggleAll(true);
+    lattice.periodicity().toggleAll(false);
+    lattice.periodicity().toggle(1,true);
+    lattice.periodicity().toggle(2,true);
+
+    OnLatticeBoundaryCondition3D<T,DESCRIPTOR>* boundaryCondition
+      //= createLocalBoundaryCondition3D<T,DESCRIPTOR>();
+        = createInterpBoundaryCondition3D<T,DESCRIPTOR>();
+
+    Box3D inlet(0,0,0,ny-1,0,nz-1), outlet(nx-1,nx-1,0,ny-1,0,nz-1);
+
+    boundaryCondition->setVelocityConditionOnBlockBoundaries(lattice,inlet);
+    //boundaryCondition->setVelocityConditionOnBlockBoundaries(lattice,outlet);
+    //boundaryCondition->setVelocityConditionOnBlockBoundaries(lattice,outlet,boundary::outflow);
+    boundaryCondition->setPressureConditionOnBlockBoundaries(lattice,outlet);
+    //boundaryCondition->setPressureConditionOnBlockBoundaries(lattice,outlet,boundary::outflow);
+    
+    setBoundaryVelocity(lattice, lattice.getBoundingBox(), Array<T,3>(uMax,0.,0.) );
+    setBoundaryDensity(lattice, lattice.getBoundingBox(), 1.);
+    initializeAtEquilibrium(lattice,lattice.getBoundingBox(),1.,Array<T,3>(uMax,0.,0.));
 
     lattice.initialize();
     lattice.collideAndStream();
-    OnLatticeBoundaryCondition3D<T,DESCRIPTOR>* boundaryCondition
-        = createLocalBoundaryCondition3D<T,DESCRIPTOR>();
 
 
     T dt_phys = units.getPhysTime(1);
@@ -207,7 +223,7 @@ int main(int argc, char* argv[]) {
 
     T *r_lb = new T[nAtoms];
     for(plint n=0;n<nAtoms;n++)
-      r_lb[n] = units.getLbLength(r[n][0]);
+      r_lb[n] = units.getLbLength(r[n][0])+0.25;
 
     T dt_dem = dt_phys/10.;
     std::stringstream cmd;
@@ -229,6 +245,11 @@ int main(int argc, char* argv[]) {
 
     clock_t start = clock();    
 
+    nAtoms = lammps_get_natoms(lmp);  
+    data_liggghts_to_of("x","vector-atom",lmp,(void*&)x,"double");
+    data_liggghts_to_of("v","vector-atom",lmp,(void*&)v,"double");
+    data_liggghts_to_of("radius","scalar-atom",lmp,(void*&)r,"double");
+    data_liggghts_to_of("id","scalar-atom",lmp,(void*&)id,"int");
 
     // Loop over main time iteration.
     for (plint iT=0; iT<maxSteps; ++iT) {
@@ -248,7 +269,7 @@ int main(int argc, char* argv[]) {
       }
 
       double **omega = 0;
-      setSpheresOnLattice(lattice,x_lb,v_lb,omega,r_lb,id,nAtoms);
+      setSpheresOnLattice(lattice,x_lb,v_lb,omega,r_lb,id,nAtoms,false);
       // applyProcessingFunctional
       //   (new SetSpheres3D<T,DESCRIPTOR>(x_lb,v_lb,r_lb,id,nAtoms),
       //    lattice.getBoundingBox(), lattice);
@@ -291,12 +312,13 @@ int main(int argc, char* argv[]) {
         pcout << "time: " << time << " " ;
         pcout << "calculating at " << mlups << " MLU/s" << std::endl;
         start = clock();
-      }
-      pcerr << x[0][0] << " " << x[0][1] << " " << x[0][2] << " "
-            << v[0][0] << " " << v[0][1] << " " << v[0][2] << " "
-            << f[0][0] << " " << f[0][1] << " " << f[0][2] << " "
-            << x[1][0] << " " << x[1][1] << " " << x[1][2] << std::endl;
+        pcerr << f[0][0] << " " 
+              << 2.*f[0][0]/(uIn*uIn*rho_f*r[0][0]*r[0][0]*3.1415) << " " 
+              << c_drag_th << " " << parameters.getOmega() << std::endl;
+
+      }   
     }
 
+        writeVTK(lattice,parameters,units,1);
     delete boundaryCondition;
 }
