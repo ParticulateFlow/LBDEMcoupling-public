@@ -31,7 +31,7 @@ pair_coeff	* *
 
 fix		1 all nve/sphere
 
-fix grav all gravity 0.981 vector 0 0 1
+fix grav all gravity 0.981 vector 1 1 1
 
 #lattice sc 1
 create_atoms 1 single 0.1 0.1 0.1

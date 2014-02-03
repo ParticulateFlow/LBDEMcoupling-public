@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
     
     
     const T maxT = (T)4.0;
-    const T vtkT = 0.05;
+    const T vtkT = 0.01;
     const T gifT = 100;
     const T logT = 0.05;
 
