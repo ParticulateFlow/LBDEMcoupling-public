@@ -25,25 +25,25 @@ typedef double T;
 #define DYNAMICS IBdynamics<T, DESCRIPTOR>(parameters.getOmega())
 
 const T pi = 4.*atan(1.);
-void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
-              IncomprFlowParam<T> const& parameters, plint iter)
-{
-    T dx = parameters.getDeltaX();
-    T dt = parameters.getDeltaT();
-    std::string fname(createFileName("vtk", iter, 6));
-    VtkImageOutput3D<T> vtkOut(fname, dx);
-    vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", dx/dt);
-    vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", dx/dt);   
+// void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
+//               IncomprFlowParam<T> const& parameters, plint iter)
+// {
+//     T dx = parameters.getDeltaX();
+//     T dt = parameters.getDeltaT();
+//     std::string fname(createFileName("vtk", iter, 6));
+//     VtkImageOutput3D<T> vtkOut(fname, dx);
+//     vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", dx/dt);
+//     vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", dx/dt);   
 
-    MultiScalarField3D<T> tmp(lattice.getNx(),lattice.getNy(),lattice.getNz());
+//     MultiScalarField3D<T> tmp(lattice.getNx(),lattice.getNy(),lattice.getNz());
 
-    applyProcessingFunctional
-      (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-       lattice.getBoundingBox(), lattice, tmp);
-    vtkOut.writeData<float>(tmp, "SolidFraction", 1.);
+//     applyProcessingFunctional
+//       (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
+//        lattice.getBoundingBox(), lattice, tmp);
+//     vtkOut.writeData<float>(tmp, "SolidFraction", 1.);
 
-    pcout << "wrote " << fname << std::endl;
-}
+//     pcout << "wrote " << fname << std::endl;
+// }
 void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
               IncomprFlowParam<T> const& parameters,
               PhysUnits3D<T> const& units, plint iter)
@@ -78,7 +78,7 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   pcout << "wrote " << fname << std::endl;
 }
 
-void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,int iT)
+void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iT)
 {
     const plint imSize = 600;
     const plint nx = lattice.getNx();
@@ -92,6 +92,30 @@ void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,int iT)
                                *computeVelocityNorm(lattice, slice),
                                imSize, imSize);
     pcout << "wrote " << fname << std::endl;
+}
+
+void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iPop, plint iT)
+{
+  std::stringstream fname_stream;
+  fname_stream << global::directories().getOutputDir()
+               << "f_" << setfill('0') << setw(2) << iPop << "_"
+               << setfill('0') << setw(8) << iT << ".dat";
+
+  plb_ofstream ofile(fname_stream.str().c_str());
+  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
+               0,lattice.getNy(),0,lattice.getNz());
+  ofile << *computePopulation(lattice, domain, iPop);
+}
+void writeExternal(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint which, char const *prefix, plint iT)
+{
+  std::stringstream fname_stream;
+  fname_stream << global::directories().getOutputDir()
+               << prefix << setfill('0') << setw(8) << iT << ".dat";
+
+  plb_ofstream ofile(fname_stream.str().c_str());
+  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
+               0,lattice.getNy(),0,lattice.getNz());
+  ofile << *computeExternalScalar(lattice,which,domain);
 }
 
 int main(int argc, char* argv[]) {
@@ -132,7 +156,7 @@ int main(int argc, char* argv[]) {
     allocate_external_int(id,1,"nparticles",0,lmp);
 
     T g = 9.81;
-    const T nu_f = 1e-4;
+    const T nu_f = 1e-3;
 
 
     const T lx = 0.2, ly = 0.2, lz = 0.2;
@@ -162,7 +186,7 @@ int main(int argc, char* argv[]) {
 
     
     
-    const T maxT = (T)4.0;
+    const T maxT = (T)1.5;
     const T vtkT = 0.01;
     const T gifT = 100;
     const T logT = 0.05;
@@ -175,10 +199,10 @@ int main(int argc, char* argv[]) {
     writeLogFile(parameters, "3D sedimenting sphere");
 
     MultiBlockLattice3D<T, DESCRIPTOR> lattice (
-        parameters.getNx(), parameters.getNy(), parameters.getNz(), 
+        parameters.getNx(), parameters.getNy(), parameters.getNz()-1, 
         new DYNAMICS );
 
-    lattice.periodicity().toggleAll(true);
+    lattice.periodicity().toggle(2,true);
 
     OnLatticeBoundaryCondition3D<T,DESCRIPTOR>* boundaryCondition
         = createLocalBoundaryCondition3D<T,DESCRIPTOR>();
@@ -214,9 +238,6 @@ int main(int argc, char* argv[]) {
     cmd << "variable t_step equal " << dt_dem;
     pcout << cmd.str() << std::endl;
     lmp->input->one(cmd.str().c_str()); cmd.str("");
-    // cmd << "variable dmp_time equal " << vtkT;
-    // pcout << cmd.str() << std::endl;
-    // lmp->input->one(cmd.str().c_str()); cmd.str("");
 
     cmd << "variable dmp_stp equal " << vtkSteps*10;
     pcout << cmd.str() << std::endl;
@@ -250,11 +271,19 @@ int main(int argc, char* argv[]) {
       bool initWithVel = false;
       setSpheresOnLattice(lattice,x_lb,v_lb,omega,r_lb,id,nAtoms,initWithVel);
 
-      if(iT%vtkSteps == 0)
-        writeVTK(lattice,parameters,units,iT);
+      // if(iT%vtkSteps == 0)
+      //   writeVTK(lattice,parameters,units,iT);
 
-      if(iT%gifSteps == 0)
-        writeGif(lattice,iT);      
+      // if(iT%gifSteps == 0)
+      //   writeGif(lattice,iT);    
+
+      for(plint iPop=0;iPop<19;iPop++)
+        writePopulation(lattice,iPop,iT);
+
+      writeExternal(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2,
+                    "fz_",iT);
+      writeExternal(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt,
+                    "fs_",iT);
 
       lattice.collideAndStream();
       
@@ -272,7 +301,7 @@ int main(int argc, char* argv[]) {
           f[n][i] = units.getPhysForce(sft.getForceTorque()[6*n+i]);
         }
 
-      //      data_of_to_liggghts("dragforce","vector-atom",lmp,(void*)f,"double");
+      data_of_to_liggghts("dragforce","vector-atom",lmp,(void*)f,"double");
       lmp->input->one("run 10");
 
 
@@ -285,7 +314,11 @@ int main(int argc, char* argv[]) {
         start = clock();
       }
 
-      pcerr << iT*dt_phys << " " << x[0][2] << std::endl;
+      pcerr << iT*dt_dem*10 << " "
+            << x[0][2] << " "
+            << v[0][2] << " "
+            << f[0][2] << " | " << v_inf << std::endl;
+
       
     }
 

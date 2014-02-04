@@ -31,11 +31,11 @@ pair_coeff	* *
 
 fix		1 all nve/sphere
 
-fix grav all gravity 0.981 vector 1 1 1
+fix grav all gravity 0.981 vector 0 0 1
 
 #lattice sc 1
-create_atoms 1 single 0.1 0.1 0.1
+create_atoms 1 single 0.1 0.1 0.17
 set group all diameter 0.05 density 1100
-
+#velocity all set 0. 0. 0.1
 run 1
 # run 10
