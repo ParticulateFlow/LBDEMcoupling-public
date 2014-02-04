@@ -108,8 +108,8 @@ template<typename T, template<typename U> class Descriptor>
     for(int i=0;i<Descriptor<T>::d;i++) uPart[i] /= invRho;
 
     T uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
-    //T B = solidFraction;
-    T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
+    T B = solidFraction;
+    //T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
     //T B = solidFraction*(omega-0.5)/((1.- solidFraction) + (omega-0.5));
     externalScalars[Descriptor<T>::ExternalField::bBeginsAt] = B;
 
@@ -124,22 +124,10 @@ template<typename T, template<typename U> class Descriptor>
 	
         T bounce = 0.5*(f[iOpposite] - f[iPop] + bias);
 
-
-        // std::cout << iPop << " " << iOpposite << " | " 
-        //           << Descriptor<T>::c[iPop][0]  
-        //           << Descriptor<T>::c[iPop][1]  
-        //           << Descriptor<T>::c[iPop][2] << " | " 
-        //           << Descriptor<T>::c[iOpposite][0]  
-        //           << Descriptor<T>::c[iOpposite][1]  
-        //           << Descriptor<T>::c[iOpposite][2] << " | " 
-        //           << f[iPop] << " " << f[iOpposite] << " | " 
-        //           << bounce << "  --> ";
         
         f[iPop] += bounce;
         f[iOpposite] -= bounce;
         
-        // std::cout << f[iPop] << " " << f[iOpposite] << std::endl;
-
         for(int i=0;i<Descriptor<T>::d;i++) 
           force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce/B; // make force independent of b
         // std::cout << std::endl;

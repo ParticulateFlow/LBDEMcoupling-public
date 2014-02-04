@@ -65,119 +65,166 @@ namespace plb{
       
       if(lattice.periodicity().get(0)){
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
         if(sss->getBoundingBox().x0 <= 0)
-          x_per[0] += (T)nx-1;
+          x_per[0] += (T)nx;
         else if(sss->getBoundingBox().x1 >= nx-1)
-          x_per[0] -= (T)nx-1;
+          x_per[0] -= (T)nx;
+        else 
+          addPerImg = false;
 
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }        
       }
       if(lattice.periodicity().get(1)){
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
         if(sss->getBoundingBox().y0 <= 0)
-          x_per[1] += (T)ny-1;
+          x_per[1] += (T)ny;
         else if(sss->getBoundingBox().y1 >= ny-1)
-          x_per[1] -= (T)ny-1;
+          x_per[1] -= (T)ny;
+        else 
+          addPerImg = false;
 
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
       }
       if(lattice.periodicity().get(2)){
         plint nz = lattice.getNz();
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
         if(sss->getBoundingBox().z0 <= 0)
-          x_per[2] += (T)nz-1;
+          x_per[2] += (T)nz;
         else if(sss->getBoundingBox().z1 >= nz-1)
-          x_per[2] -= (T)nz-1;
+          x_per[2] -= (T)nz;
+        else 
+          addPerImg = false;
 
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
       }
       
       if(lattice.periodicity().get(0) && lattice.periodicity().get(1)){
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
         if(sss->getBoundingBox().x0 <= 0)
-          x_per[0] += (T)nx-1;
+          x_per[0] += (T)nx;
         else if(sss->getBoundingBox().x1 >= nx-1)
-          x_per[0] -= (T)nx-1;
+          x_per[0] -= (T)nx;
+        else 
+          addPerImg = false;
+        if(addPerImg){
+          if(sss->getBoundingBox().y0 <= 0)
+            x_per[1] += (T)ny;
+          else if(sss->getBoundingBox().y1 >= ny-1)
+            x_per[1] -= (T)ny;
+          else 
+            addPerImg = false;
+        }
 
-        if(sss->getBoundingBox().y0 <= 0)
-          x_per[1] += (T)ny-1;
-        else if(sss->getBoundingBox().y1 >= ny-1)
-          x_per[1] -= (T)ny-1;
-
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
         
       }
       if(lattice.periodicity().get(1) && lattice.periodicity().get(2)){
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
         if(sss->getBoundingBox().y0 <= 0)
-          x_per[1] += (T)ny-1;
+          x_per[1] += (T)ny;
         else if(sss->getBoundingBox().y1 >= ny-1)
-          x_per[1] -= (T)ny-1;
-
-        if(sss->getBoundingBox().z0 <= 0)
-          x_per[2] += (T)nz-1;
-        else if(sss->getBoundingBox().z1 >= nz-1)
-          x_per[2] -= (T)nz-1;
-
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        
+          x_per[1] -= (T)ny;
+        else 
+          addPerImg = false;
+        if(addPerImg){
+          if(sss->getBoundingBox().z0 <= 0)
+            x_per[2] += (T)nz;
+          else if(sss->getBoundingBox().z1 >= nz-1)
+            x_per[2] -= (T)nz;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
       }
       if(lattice.periodicity().get(2) && lattice.periodicity().get(0)){
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
         if(sss->getBoundingBox().z0 <= 0)
-          x_per[2] += (T)nx-1;
+          x_per[2] += (T)nz;
         else if(sss->getBoundingBox().z1 >= nz-1)
-          x_per[2] -= (T)nx-1;
+          x_per[2] -= (T)nz;
+        else 
+          addPerImg = false;
 
-        if(sss->getBoundingBox().x0 <= 0)
-          x_per[0] += (T)ny-1;
-        else if(sss->getBoundingBox().x1 >= nx-1)
-          x_per[0] -= (T)ny-1;
-
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        if(addPerImg){
+          if(sss->getBoundingBox().x0 <= 0)
+            x_per[0] += (T)nx;
+          else if(sss->getBoundingBox().x1 >= nx-1)
+            x_per[0] -= (T)nx;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
         
       }
       if(lattice.periodicity().get(0) && lattice.periodicity().get(1) && lattice.periodicity().get(2)){
         T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
 
         if(sss->getBoundingBox().x0 <= 0)
-          x_per[0] += (T)ny-1;
+          x_per[0] += (T)nx;
         else if(sss->getBoundingBox().x1 >= nx-1)
-          x_per[0] -= (T)ny-1;
+          x_per[0] -= (T)nx;
+        else 
+          addPerImg = false;
 
-        if(sss->getBoundingBox().y0 <= 0)
-          x_per[1] += (T)ny-1;
-        else if(sss->getBoundingBox().y1 >= ny-1)
-          x_per[1] -= (T)ny-1;
-
-        if(sss->getBoundingBox().z0 <= 0)
-          x_per[2] += (T)nx-1;
-        else if(sss->getBoundingBox().z1 >= nz-1)
-          x_per[2] -= (T)nx-1;
-        SetSingleSphere3D<T,Descriptor> *sss_per 
-          = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
-                                                omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
-        applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        
+        if(addPerImg){
+          if(sss->getBoundingBox().y0 <= 0)
+            x_per[1] += (T)ny;
+          else if(sss->getBoundingBox().y1 >= ny-1)
+            x_per[1] -= (T)ny;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          if(sss->getBoundingBox().z0 <= 0)
+            x_per[2] += (T)nz;
+          else if(sss->getBoundingBox().z1 >= nz-1)
+            x_per[2] -= (T)nz;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
       }
     }
   }

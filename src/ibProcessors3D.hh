@@ -78,7 +78,7 @@ namespace plb{
               // else do nothing
               break;
             case 3:
-              if(sf > *sfPtr || ((plint)*idPtr) == id)
+              if( sf >= *sfPtr || ((plint)*idPtr) == id )
                 setValues(cell,sf,dx,dy,dz);
               // else do nothing
             }
@@ -91,16 +91,16 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   T SetSingleSphere3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_, T r_)
   {
-    plint const slicesPerDim = 5;
+    plint const slicesPerDim = 20;
     
-    T sliceWidth = 1./((T)slicesPerDim-1);
-    T fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
+    T const sliceWidth = 1./((T)slicesPerDim-1);
+    T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
     
 
-    if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r_+1)*(r_+1))
+    if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r_+2)*(r_+2))
       return 0;
 
-    if (dx_*dx_ + dy_*dy_ + dz_*dz_ < (r_-1)*(r_-1))
+    if (dx_*dx_ + dy_*dy_ + dz_*dz_ < (r_-2)*(r_-2))
       return 1;
 
     T r_sq = r_*r_;
@@ -124,7 +124,7 @@ namespace plb{
         }
       }
     }
-    return solFrac;//solFrac>0.5 ? 1. : 0.;
+    return solFrac;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -244,7 +244,7 @@ namespace plb{
           addForce(id,0,forceX);
           addForce(id,1,forceY);
           addForce(id,2,forceZ);
-
+          // TODO: get torque evaluation right for periodic boundary conditions
           // addTorque(id,0,dy*forceZ - dz*forceY);
           // addTorque(id,1,-dx*forceZ + dz*forceX);
           // addTorque(id,2,dx*forceY - dy*forceX);
