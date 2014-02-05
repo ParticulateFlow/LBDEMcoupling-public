@@ -14,3 +14,28 @@
 
 # emacs save files
 *~
+
+# palabos files
+.sconsign.dblite
+
+# outputs
+tmp/
+post/
+*.vti
+
+
+# image and video files
+*.avi
+*.gif
+
+# misc files
+octave*
+core
+gmon.out
+log.*
+
+# collected bullsh*t
+examples/dragValidationLiggghts/u0*
+examples/sedimentingSphere/*E*
+#examples/sedimentingSphere/E*
+
