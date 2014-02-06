@@ -6,7 +6,8 @@
 #ifndef PHYSUNITS_H
 #define PHYSUNITS_H
 
-#include "units.h"
+#include "palabos3D.h"
+#include "palabos3D.hh"
 #include <cmath>
 
 namespace plb {
@@ -23,7 +24,7 @@ namespace plb {
     T getLbLength(T physL) const { return physL / l_p / param.getDeltaX() ; };
     T getLbVel(T physVel) const { return physVel / u_p * param.getLatticeU(); };
     T getLbTime(T physTime) const { return physTime / t_p / param.getDeltaT(); };
-    T getLbDensity(T lbDensity) const { return lbDensity / rho_p; };
+    T getLbDensity(T physDensity) const { return physDensity / rho_p; };
     T getLbAccel(T physAccel) const { return physAccel * (t_p*t_p/l_p)
         * (param.getDeltaT()*param.getDeltaT()/param.getDeltaX()); };
     T getLbFreq(T physFreq) const { return physFreq * t_p * param.getDeltaT(); };

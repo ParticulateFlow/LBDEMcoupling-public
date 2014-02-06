@@ -17,7 +17,7 @@
 # Leading directory of the Palabos source code
 palabosRoot   = ${PALABOS_ROOT}
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = periodicityCheck.cpp
+projectFiles = periodicPressure.cpp
 
 # Set optimization flags on/off
 optimize     = true

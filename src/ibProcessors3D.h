@@ -9,8 +9,8 @@ namespace plb{
   template<typename T1, template<typename U> class Descriptor, typename T2>
   struct GetExternalScalarFunctional3D : public BoxProcessingFunctional3D_LS<T1,Descriptor,T2> {
     GetExternalScalarFunctional3D(int const scalar_)
-    : BoxProcessingFunctional3D_LS<T1,Descriptor,T2>(), scalar(scalar_) {}
-
+      : BoxProcessingFunctional3D_LS<T1,Descriptor,T2>(), scalar(scalar_) {}
+    
     virtual void process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
                          ScalarField3D<T2>& field);
     GetExternalScalarFunctional3D<T1,Descriptor,T2>* clone() const;
