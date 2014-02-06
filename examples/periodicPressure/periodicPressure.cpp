@@ -37,6 +37,19 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   pcout << "wrote " << fname << std::endl;
 }
 
+void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iPop, plint iT)
+{
+  std::stringstream fname_stream;
+  fname_stream << global::directories().getOutputDir()
+               << "f_" << setfill('0') << setw(2) << iPop << "_"
+               << setfill('0') << setw(8) << iT << ".dat";
+
+  plb_ofstream ofile(fname_stream.str().c_str());
+  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
+               0,lattice.getNy(),0,lattice.getNz());
+  ofile << *computePopulation(lattice, domain, iPop);
+}
+
 template<typename T, template<typename U> class Descriptor>
 class PeriodicPressureFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
 public:
@@ -46,6 +59,7 @@ public:
                                plint const dimension, plint const direction)
     : rescaleFactor((1.+3.*deltaRho)/rhoAvg)
   {
+    pcout << rescaleFactor << " " << 1./rescaleFactor << std::endl;
     // to do: perform error checking here
     for(plint iPop=0;iPop<Descriptor<T>::q;iPop++){
       if(Descriptor<T>::c[iPop][dimension] == direction){
@@ -86,6 +100,7 @@ private:
   T rescaleFactor;
 };
 
+
 int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
@@ -112,19 +127,19 @@ int main(int argc, char* argv[]) {
 
     const T nu_f = 1e-3;
 
-
     const T lx = 0.2, ly = 0.2, lz = 0.2*lFactor;
     
-    T gradP = deltaP/lz/rho_f;
-    T u_phys = gradP*lx*lx/(nu_f*8);
+    T gradP = deltaP/lz;
+    T lx_eff = lx;//*(T)(N-1)/(T)N;
+    T u_phys = gradP*lx_eff*lx_eff/(nu_f*8*rho_f);
 
     
     PhysUnits3D<T> units(lx,u_phys,nu_f,lx,ly,lz,N,uMax,rho_f);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
-    const T maxT = (T)50.;
-    const T vtkT = 0.5;
+    const T maxT = (T)1.5;
+    const T vtkT = 0.00005;
     const T logT = 0.5;
 
     const plint maxSteps = units.getLbSteps(maxT);
@@ -145,12 +160,12 @@ int main(int argc, char* argv[]) {
     Box3D backWall(0,0,0,ny-1,0,nz-1), frontWall(nx-1,nx-1,0,ny-1,0,nz-1);
     defineDynamics(lattice,backWall,new BounceBack<T,DESCRIPTOR>);
     defineDynamics(lattice,frontWall,new BounceBack<T,DESCRIPTOR>);
-    //Box3D inlet(1,nx-2,1,ny-2,0,0), outlet(1,nx-2,1,ny-2,nz-1,nz-1);
-    //Box3D inlet(1,nx-2,0,ny-1,0,0), outlet(1,nx-2,0,ny-1,nz-1,nz-1);
-
     
-    T deltaRho = units.getLbRho(deltaP);//*((T)nz)/((T)(nz-2));//((T)(nx-1))/((T)nx);
+    T deltaRho = units.getLbRho(deltaP);//*(T)(nz+1)/(T)nz;
+    T gradRho = units.getLbRho(gradRho);
 
+    // initializeAtEquilibrium(lattice,inlet,1.,Array<T,3>(0.,0.,0.));
+    // initializeAtEquilibrium(lattice,outlet,1.-deltaRho,Array<T,3>(0.,0.,0.));
 
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
@@ -161,24 +176,27 @@ int main(int argc, char* argv[]) {
           << "vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
     
-    
     clock_t start = clock();    
     for (plint iT=0; iT<maxSteps; ++iT) {
 
       if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,units,iT);
 
+      pcerr << units.getPhysPress(computeAverageDensity(lattice,inlet)) << " " 
+            << units.getPhysPress(computeAverageDensity(lattice,outlet)) << std::endl;
+
       lattice.collideAndStream();
 
       T rhoAvgIn = computeAverageDensity(lattice,inlet);
       T rhoAvgOut = computeAverageDensity(lattice,outlet);
 
-      applyProcessingFunctional(new PeriodicPressureFunctional3D<T,DESCRIPTOR>(0., rhoAvgOut,2, 1),
+      applyProcessingFunctional(new PeriodicPressureFunctional3D<T,DESCRIPTOR>(deltaRho/2., rhoAvgOut,2, 1),
                                 inlet,lattice);
-      applyProcessingFunctional(new PeriodicPressureFunctional3D<T,DESCRIPTOR>(-deltaRho, rhoAvgIn,2, -1),
+      applyProcessingFunctional(new PeriodicPressureFunctional3D<T,DESCRIPTOR>(-deltaRho/2., rhoAvgIn,2, -1),
                                 outlet,lattice);
 
-
+      for(plint iPop=0;iPop<19;iPop++)
+        writePopulation(lattice,iPop,iT);
 
       if(iT%logSteps == 0){
         clock_t end = clock();
