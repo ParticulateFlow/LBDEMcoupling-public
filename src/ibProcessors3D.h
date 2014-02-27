@@ -234,18 +234,29 @@ namespace plb{
   struct SumForceTorque3D : public ReductiveBoxProcessingFunctional3D_L<T,Descriptor> {
   public:
     SumForceTorque3D(plint nPart_, T **x_);
-    // SumForceTorque3D(plint const *partId_, T **x_, T **force_, T **torque_)
-    //   : partId(partId_), x(x_), force(force_),torque(torque_) {}
+    SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig)
+      : sumId(orig.sumId), x(orig.x), partId(orig.partId),
+        ReductiveBoxProcessingFunctional3D_L<T,Descriptor>(orig) 
+    {
+      // pcout << "this is copy constructor" << std::endl;
+      // for(plint i=0;i<this->getStatistics().getSumVect().size();i++)
+      //   pcout << this->getStatistics().getSumVect()[i] << " ";
+      // pcout << std::endl;
+    }
+
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
 
     SumForceTorque3D<T,Descriptor>* clone() const;
     void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     std::vector<double>& getForceTorque(){return this->getStatistics().getSumVect();}
+
+    double getForce(plint partId, plint coord);
+    double getTorque(plint partId, plint coord);
+
   private:
     std::vector<plint> sumId;
     plint const *partId;
     T **x;
-    T **force, **torque;
     void addForce(plint partId, plint coord, T value);
     void addTorque(plint partId, plint coord, T value);
   };

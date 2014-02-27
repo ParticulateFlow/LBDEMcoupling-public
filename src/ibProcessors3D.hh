@@ -65,6 +65,7 @@ namespace plb{
             
             plint decFlag = (sf > SOLFRAC_MIN) + 2*(*sfPtr > SOLFRAC_MIN);
 
+
             switch(decFlag){
             case 0:
               // do nothing
@@ -73,15 +74,16 @@ namespace plb{
               setValues(cell,sf,dx,dy,dz);
               break;
             case 2:
-              if(((plint)*idPtr) == id)
+              if( (plint)(*idPtr) == id )
                 setToZero(cell);
               // else do nothing
               break;
             case 3:
-              if( sf >= *sfPtr || ((plint)*idPtr) == id )
+              if( sf >= *sfPtr || (plint)(*idPtr) == id )
                 setValues(cell,sf,dx,dy,dz);
               // else do nothing
             }
+
           }
         }
       }
@@ -91,7 +93,7 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   T SetSingleSphere3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_, T r_)
   {
-    plint const slicesPerDim = 20;
+    plint const slicesPerDim = 6;
     
     T const sliceWidth = 1./((T)slicesPerDim-1);
     T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
@@ -139,7 +141,7 @@ namespace plb{
     uPtr[2] = v[2];
     if(omega != 0){
       uPtr[0] += omega[1]*dz - omega[2]*dy;
-      uPtr[1] += omega[0]*dz + omega[2]*dx; 
+      uPtr[1] += -omega[0]*dz + omega[2]*dx; 
       uPtr[2] += omega[0]*dy - omega[1]*dx;
     }
     *sfPtr = sf;
@@ -185,13 +187,12 @@ namespace plb{
      */
     for(plint i=0;i<6*nPart_;i++)
       sumId.push_back(this->getStatistics().subscribeSum());
-    pcout << "asdfasdfasdfadsf " << sumId.size() << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
   {
-    static plint pid = Descriptor<T>::ExternalField::particleIdBeginsAt,
+    static plint partId = Descriptor<T>::ExternalField::particleIdBeginsAt,
       fx = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt,
       fy = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+1,
       fz = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+2,
@@ -211,20 +212,17 @@ namespace plb{
     //           << domain.z0 + relativePosition.z << " " << domain.z1 + relativePosition.z << " "
     //           << std::endl;
     
-    // for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-    //   for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-    //     for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-    T s(0.);
+    plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
                     
           // LIGGGHTS indices start at 1
-          plint id = (plint) (*(cell.getExternal(pid)))-1;
+          plint id = (plint) *(cell.getExternal(partId))-1;
           if(id < 0) continue; // no particle here
           
-          //Dot3D relativePosition = lattice.getLocation();
           T xGlobal = (T) (relativePosition.x + iX);
           T yGlobal = (T) (relativePosition.y + iY);
           T zGlobal = (T) (relativePosition.z + iZ);
@@ -234,24 +232,39 @@ namespace plb{
           T forceX = fs*(*(cell.getExternal(fx)));
           T forceY = fs*(*(cell.getExternal(fy)));
           T forceZ = fs*(*(cell.getExternal(fz)));
-          // if(id == 1)
-          //   pcerr << id << " " << forceX << " " << forceY << " " << forceZ << std::endl;
+        
+          // pcout << id << " " << forceX << " " << forceY << " " << forceZ << std::endl;
 
-          T dx = xGlobal - x[id][0];
-          T dy = yGlobal - x[id][1];
-          T dz = zGlobal - x[id][2];
 
           addForce(id,0,forceX);
           addForce(id,1,forceY);
           addForce(id,2,forceZ);
+
           // TODO: get torque evaluation right for periodic boundary conditions
-          // addTorque(id,0,dy*forceZ - dz*forceY);
-          // addTorque(id,1,-dx*forceZ + dz*forceX);
-          // addTorque(id,2,dx*forceY - dy*forceX);
+          T dx = xGlobal - x[id][0];
+          T dy = yGlobal - x[id][1];
+          T dz = zGlobal - x[id][2];
+
+          if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
+          if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
+          if(dz>nz/2) dz -= nz; if(dz<-nz/2) dz += nz;
+
+          // minimum image convention
+          addTorque(id,0,dy*forceZ - dz*forceY);
+          addTorque(id,1,-dx*forceZ + dz*forceX);
+          addTorque(id,2,dx*forceY - dy*forceX);
+
+          // addTorque(id,0,0.);
+          // addTorque(id,1,0.);
+          // addTorque(id,2,0.);
         }
       }
     }
     // std::cout << global::mpi().getRank() << " | " << s << std::endl;
+    // pcout << "###### ";
+    // for(plint i=0;i<this->getStatistics().getSumVect().size();i++)
+    //   pcout << this->getStatistics().getSumVect()[i] << " ";
+    // pcout << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -268,6 +281,19 @@ namespace plb{
   }
 
   template<typename T, template<typename U> class Descriptor>
+  double SumForceTorque3D<T,Descriptor>::getForce(plint partId, plint coord)
+  {
+    plint which = sumId[6*(partId)+coord];
+    return this->getStatistics().getSum(which);
+  }
+  template<typename T, template<typename U> class Descriptor>
+  double SumForceTorque3D<T,Descriptor>::getTorque(plint partId, plint coord)
+  {
+    plint which = sumId[6*(partId)+coord+3];
+    return this->getStatistics().getSum(which);
+  }
+
+  template<typename T, template<typename U> class Descriptor>
   SumForceTorque3D<T,Descriptor>* SumForceTorque3D<T,Descriptor>::clone() const
   { 
     return new SumForceTorque3D<T,Descriptor>(*this);
@@ -277,5 +303,6 @@ namespace plb{
   void SumForceTorque3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
   {
     modified[0] = modif::nothing;
+    //    modified[1] = modif::staticVariables;
   }
 };
