@@ -7,37 +7,20 @@
 namespace plb{
 
   /*
-   * implementation of GetExternalScalarFunctional3D
-   */
-
-  template<typename T1, template<typename U> class Descriptor, typename T2>
-  void GetExternalScalarFunctional3D<T1,Descriptor,T2>::process(Box3D domain, 
-                                                                BlockLattice3D<T1,Descriptor>& lattice,
-                                                                ScalarField3D<T2>& field){
-    for(plint i=domain.x0;i<=domain.x1;i++)
-      for(plint j=domain.y0;j<=domain.y1;j++)
-        for(plint k=domain.z0;k<=domain.z1;k++){
-          field.get(i,j,k) = *(lattice.get(i,j,k).getExternal(scalar));
-        }
-  }
-
-  template<typename T1, template<typename U> class Descriptor, typename T2>
-  GetExternalScalarFunctional3D<T1,Descriptor,T2>* GetExternalScalarFunctional3D<T1,Descriptor,T2>::clone() const{
-    return new GetExternalScalarFunctional3D<T1,Descriptor,T2>(*this);
-  }
-
-  template<typename T1, template<typename U> class Descriptor, typename T2>
-  void GetExternalScalarFunctional3D<T1,Descriptor,T2>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
-  {
-    modified[0] = modif::nothing;
-    modified[1] = modif::staticVariables;
-  }
-
-  /* ---------------------------------------------------- */
-
-  /*
    * implementation of SetSingleSphere3D
    */
+
+  template<typename T, template<typename U> class Descriptor>
+  void SetSingleSphere3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+  {
+    modified[0] = modif::staticVariables;
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  SetSingleSphere3D<T,Descriptor>* SetSingleSphere3D<T,Descriptor>::clone() const 
+  {
+    return new SetSingleSphere3D<T,Descriptor>(*this);
+  }
 
   template<typename T, template<typename U> class Descriptor>
   void SetSingleSphere3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice)
@@ -55,8 +38,6 @@ namespace plb{
             
             T *sfPtr = cell.getExternal(Descriptor<T>::ExternalField::volumeFractionBeginsAt);
             T *idPtr = cell.getExternal(Descriptor<T>::ExternalField::particleIdBeginsAt);
-            T *uPtr = cell.getExternal(Descriptor<T>::ExternalField::boundaryVelocityBeginsAt);
-
           
             T dx = xGlobal - x[0];
             T dy = yGlobal - x[1];
@@ -146,7 +127,7 @@ namespace plb{
     }
     *sfPtr = sf;
     *idPtr = (T) id;
-    //bool initVelFlag = false;
+
     if(initVelFlag && sf > SOLFRAC_MAX){
       Array<T,3> u(uPtr[0],uPtr[1],uPtr[2]);
       T uSqr = uPtr[0]+uPtr[0] + uPtr[1]+uPtr[1] + uPtr[2]+uPtr[2];
@@ -195,22 +176,11 @@ namespace plb{
     static plint partId = Descriptor<T>::ExternalField::particleIdBeginsAt,
       fx = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt,
       fy = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+1,
-      fz = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+2,
+      fz = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+2;
       //solfrac_id = Descriptor<T>::ExternalField::volumeFractionBeginsAt;
-      solfrac_id = Descriptor<T>::ExternalField::bBeginsAt;
+      // solfrac_id = Descriptor<T>::ExternalField::bBeginsAt;
 
     Dot3D relativePosition = lattice.getLocation();
-    // std::cout << "process " << global::mpi().getRank() << " | " 
-    //           << domain.x0 << " " << domain.x1 << " "
-    //           << domain.y0 << " " << domain.y1 << " "
-    //           << domain.z0 << " " << domain.z1 << " | "
-    //           << relativePosition.x << " " 
-    //           << relativePosition.y << " " 
-    //           << relativePosition.z << " | "
-    //           << domain.x0 + relativePosition.x << " " << domain.x1 + relativePosition.x << " "
-    //           << domain.y0 + relativePosition.y << " " << domain.y1 + relativePosition.y << " " 
-    //           << domain.z0 + relativePosition.z << " " << domain.z1 + relativePosition.z << " "
-    //           << std::endl;
     
     plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
 
@@ -227,15 +197,10 @@ namespace plb{
           T yGlobal = (T) (relativePosition.y + iY);
           T zGlobal = (T) (relativePosition.z + iZ);
           
-          T fs = *(cell.getExternal(solfrac_id));
-
-          T forceX = fs*(*(cell.getExternal(fx)));
-          T forceY = fs*(*(cell.getExternal(fy)));
-          T forceZ = fs*(*(cell.getExternal(fz)));
+          T forceX = (*(cell.getExternal(fx)));
+          T forceY = (*(cell.getExternal(fy)));
+          T forceZ = (*(cell.getExternal(fz)));
         
-          // pcout << id << " " << forceX << " " << forceY << " " << forceZ << std::endl;
-
-
           addForce(id,0,forceX);
           addForce(id,1,forceY);
           addForce(id,2,forceZ);
@@ -254,17 +219,9 @@ namespace plb{
           addTorque(id,1,-dx*forceZ + dz*forceX);
           addTorque(id,2,dx*forceY - dy*forceX);
 
-          // addTorque(id,0,0.);
-          // addTorque(id,1,0.);
-          // addTorque(id,2,0.);
         }
       }
     }
-    // std::cout << global::mpi().getRank() << " | " << s << std::endl;
-    // pcout << "###### ";
-    // for(plint i=0;i<this->getStatistics().getSumVect().size();i++)
-    //   pcout << this->getStatistics().getSumVect()[i] << " ";
-    // pcout << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -303,6 +260,190 @@ namespace plb{
   void SumForceTorque3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
   {
     modified[0] = modif::nothing;
-    //    modified[1] = modif::staticVariables;
   }
+
+  /* ------------------------------------------- */
+  /*
+   * implementation of setSpheresOnLattice
+   */
+
+  template<typename T, template<typename U> class Descriptor>
+  void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
+                           T **x, T **v, T **omega, T *r, int **id, plint nSpheres, bool initVelFlag)
+  {
+    plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
+    for(plint iS=0;iS<nSpheres;iS++){
+      SetSingleSphere3D<T,Descriptor> *sss 
+        = new SetSingleSphere3D<T,Descriptor>(x[iS],v[iS],
+                                              omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+      Box3D sss_box = sss->getBoundingBox();
+      applyProcessingFunctional(sss,sss_box,lattice);
+
+      
+      if(lattice.periodicity().get(0)){
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+        if(sss_box.x0 <= 0)
+          x_per[0] += (T)nx;
+        else if(sss_box.x1 >= nx-1)
+          x_per[0] -= (T)nx;
+        else 
+          addPerImg = false;
+
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }        
+      }
+      if(lattice.periodicity().get(1)){
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+        if(sss_box.y0 <= 0)
+          x_per[1] += (T)ny;
+        else if(sss_box.y1 >= ny-1)
+          x_per[1] -= (T)ny;
+        else 
+          addPerImg = false;
+
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
+      }
+      if(lattice.periodicity().get(2)){
+        plint nz = lattice.getNz();
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+        if(sss_box.z0 <= 0)
+          x_per[2] += (T)nz;
+        else if(sss_box.z1 >= nz-1)
+          x_per[2] -= (T)nz;
+        else 
+          addPerImg = false;
+
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
+      }
+      
+      if(lattice.periodicity().get(0) && lattice.periodicity().get(1)){
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+        if(sss_box.x0 <= 0)
+          x_per[0] += (T)nx;
+        else if(sss_box.x1 >= nx-1)
+          x_per[0] -= (T)nx;
+        else 
+          addPerImg = false;
+        if(addPerImg){
+          if(sss_box.y0 <= 0)
+            x_per[1] += (T)ny;
+          else if(sss_box.y1 >= ny-1)
+            x_per[1] -= (T)ny;
+          else 
+            addPerImg = false;
+        }
+
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
+        
+      }
+      if(lattice.periodicity().get(1) && lattice.periodicity().get(2)){
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+        if(sss_box.y0 <= 0)
+          x_per[1] += (T)ny;
+        else if(sss_box.y1 >= ny-1)
+          x_per[1] -= (T)ny;
+        else 
+          addPerImg = false;
+        if(addPerImg){
+          if(sss_box.z0 <= 0)
+            x_per[2] += (T)nz;
+          else if(sss_box.z1 >= nz-1)
+            x_per[2] -= (T)nz;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
+      }
+      if(lattice.periodicity().get(2) && lattice.periodicity().get(0)){
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+        if(sss_box.z0 <= 0)
+          x_per[2] += (T)nz;
+        else if(sss_box.z1 >= nz-1)
+          x_per[2] -= (T)nz;
+        else 
+          addPerImg = false;
+
+        if(addPerImg){
+          if(sss_box.x0 <= 0)
+            x_per[0] += (T)nx;
+          else if(sss_box.x1 >= nx-1)
+            x_per[0] -= (T)nx;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
+        
+      }
+      if(lattice.periodicity().get(0) && lattice.periodicity().get(1) && lattice.periodicity().get(2)){
+        T x_per[3] = {x[iS][0],x[iS][1],x[iS][2]};
+        bool addPerImg(true);
+
+        if(sss_box.x0 <= 0)
+          x_per[0] += (T)nx;
+        else if(sss_box.x1 >= nx-1)
+          x_per[0] -= (T)nx;
+        else 
+          addPerImg = false;
+
+        if(addPerImg){
+          if(sss_box.y0 <= 0)
+            x_per[1] += (T)ny;
+          else if(sss_box.y1 >= ny-1)
+            x_per[1] -= (T)ny;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          if(sss_box.z0 <= 0)
+            x_per[2] += (T)nz;
+          else if(sss_box.z1 >= nz-1)
+            x_per[2] -= (T)nz;
+          else 
+            addPerImg = false;
+        }
+        if(addPerImg){
+          SetSingleSphere3D<T,Descriptor> *sss_per 
+            = new SetSingleSphere3D<T,Descriptor>(x_per,v[iS],
+                                                  omega==0 ? 0 : omega[iS],r[iS],id[0][iS],initVelFlag);
+          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
+        }
+      }
+    }
+  }
+
 };

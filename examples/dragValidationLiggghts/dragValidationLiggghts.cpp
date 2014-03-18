@@ -37,10 +37,8 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
 
     MultiScalarField3D<T> tmp(lattice.getNx(),lattice.getNy(),lattice.getNz());
 
-    applyProcessingFunctional
-      (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-       lattice.getBoundingBox(), lattice, tmp);
-    vtkOut.writeData<float>(tmp, "SolidFraction", 1.);
+    vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
+                            "SolidFraction",1.);
 
     pcout << "wrote " << fname << std::endl;
 }
@@ -64,16 +62,10 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
   
-  
-  applyProcessingFunctional
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "SolidFraction", 1.);
-  
-  applyProcessingFunctional
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "PartId", 1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
+                          "SolidFraction",1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
+                          "PartId",1.);
 
   pcout << "wrote " << fname << std::endl;
 }

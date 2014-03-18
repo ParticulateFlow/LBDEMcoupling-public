@@ -50,7 +50,7 @@ template<typename T, template<typename U> class Descriptor>
 
   template<typename T, template<typename U> class Descriptor>
   int IBdynamics<T,Descriptor>::id =
-      meta::registerOneParamDynamics<T,Descriptor,BGKdynamics<T,Descriptor> >("IB");
+      meta::registerOneParamDynamics<T,Descriptor,IBdynamics<T,Descriptor> >("IB");
 
 
   /** \param omega_ relaxation parameter, related to the dynamic viscosity
@@ -108,10 +108,10 @@ template<typename T, template<typename U> class Descriptor>
     for(int i=0;i<Descriptor<T>::d;i++) uPart[i] /= invRho;
 
     T uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
-    T B = solidFraction;
-    //T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
-    //T B = solidFraction*(omega-0.5)/((1.- solidFraction) + (omega-0.5));
-    externalScalars[Descriptor<T>::ExternalField::bBeginsAt] = B;
+    //T B = solidFraction;
+    T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
+    
+    //externalScalars[Descriptor<T>::ExternalField::bBeginsAt] = B;
 
     if(B > SOLFRAC_MAX){ // then we have pure solid and do not need any collision
       for(int iPop=1,iOpposite=Descriptor<T>::q/2+1;iPop <= Descriptor<T>::q/2;iPop++,iOpposite++){
@@ -129,8 +129,7 @@ template<typename T, template<typename U> class Descriptor>
         f[iOpposite] -= bounce;
         
         for(int i=0;i<Descriptor<T>::d;i++) 
-          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce/B; // make force independent of b
-        // std::cout << std::endl;
+          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce; 
 
       }
     } else{
@@ -160,8 +159,9 @@ template<typename T, template<typename U> class Descriptor>
         f[iOpposite] -= omega_1minB*deltaFCollOp;    f[iOpposite] -= bounce;
 
         for(int i=0;i<Descriptor<T>::d;i++) 
-          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce/B;
+          force[i] -= 2.*Descriptor<T>::c[iPop][i]*bounce;
       }
+        
     }
     return jSqr*invRho*invRho;
 

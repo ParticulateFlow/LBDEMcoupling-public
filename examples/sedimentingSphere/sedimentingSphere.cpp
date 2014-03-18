@@ -24,26 +24,6 @@ typedef double T;
 #define DESCRIPTOR descriptors::ImmersedBoundaryD3Q19Descriptor
 #define DYNAMICS IBdynamics<T, DESCRIPTOR>(parameters.getOmega())
 
-const T pi = 4.*atan(1.);
-void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
-              IncomprFlowParam<T> const& parameters, plint iter)
-{
-    T dx = parameters.getDeltaX();
-    T dt = parameters.getDeltaT();
-    std::string fname(createFileName("vtk", iter, 6));
-    VtkImageOutput3D<T> vtkOut(fname, dx);
-    vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", dx/dt);
-    vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", dx/dt);   
-
-    MultiScalarField3D<T> tmp(lattice.getNx(),lattice.getNy(),lattice.getNz());
-
-    applyProcessingFunctional
-      (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-       lattice.getBoundingBox(), lattice, tmp);
-    vtkOut.writeData<float>(tmp, "SolidFraction", 1.);
-
-    pcout << "wrote " << fname << std::endl;
-}
 void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
               IncomprFlowParam<T> const& parameters,
               PhysUnits3D<T> const& units, plint iter)
@@ -65,15 +45,10 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
   
   
-  applyProcessingFunctional
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "SolidFraction", 1.);
-  
-  applyProcessingFunctional
-    (new GetExternalScalarFunctional3D<T,DESCRIPTOR,T>(DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
-     lattice.getBoundingBox(), lattice, tmp);
-  vtkOut.writeData<float>(tmp, "PartId", 1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
+                          "SolidFraction",1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
+                          "PartId",1.);
 
   pcout << "wrote " << fname << std::endl;
 }
@@ -164,10 +139,10 @@ int main(int argc, char* argv[]) {
 
     
     
-    const T maxT = (T)8.0;
+    const T maxT = (T)2.0;
     const T vtkT = 0.05;
     const T gifT = 100;
-    const T logT = 0.05;
+    const T logT = 0.001;
 
     const plint maxSteps = units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
@@ -290,11 +265,11 @@ int main(int argc, char* argv[]) {
         pcout << "time: " << time << " " ;
         pcout << "calculating at " << mlups << " MLU/s" << std::endl;
         start = clock();
-      }
         pcerr << iT*dt_dem*10 << " "
               << x[0][2] << " "
               << v[0][2] << " "
               << f[0][2] << " | " << v_inf << std::endl;
+      }
       
     }
 
