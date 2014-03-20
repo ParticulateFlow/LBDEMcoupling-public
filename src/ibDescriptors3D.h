@@ -11,16 +11,22 @@ namespace plb {
     struct IBDynamicsDescriptor3D {
       static const int volumeFractionBeginsAt = 0;
       static const int sizeOfVolumeFraction = 1;
+
       static const int particleIdBeginsAt = volumeFractionBeginsAt + sizeOfVolumeFraction;
       static const int sizeOfParticleId = 1;
+
       static const int boundaryVelocityBeginsAt = particleIdBeginsAt + sizeOfParticleId;
       static const int sizeOfBoundaryVelocity = 3;
+
       static const int hydrodynamicForceBeginsAt = boundaryVelocityBeginsAt + sizeOfBoundaryVelocity;
       static const int sizeOfHydrodynamicForce = 3;
+
       static const int bBeginsAt = hydrodynamicForceBeginsAt + sizeOfHydrodynamicForce;
       static const int sizeOfB = 1;
+
       static const int forceBeginsAt = 0;
       static const int sizeOfForce   = 0;
+
       static const int numScalars = sizeOfVolumeFraction + sizeOfParticleId
         + sizeOfBoundaryVelocity + sizeOfHydrodynamicForce + sizeOfB + sizeOfForce;
       static const int numSpecies = 5;

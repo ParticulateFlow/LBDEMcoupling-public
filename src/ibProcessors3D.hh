@@ -43,43 +43,39 @@ namespace plb{
             T dy = yGlobal - x[1];
             T dz = zGlobal - x[2];
             T sf = calcSolidFraction(dx,dy,dz,r);
-            
+
             plint decFlag = (sf > SOLFRAC_MIN) + 2*(*sfPtr > SOLFRAC_MIN);
 
-
             switch(decFlag){
-            case 0:
-              // do nothing
-              break;
-            case 1:
+            case 0: // sf == 0 && *sfPtr == 0
+              setToZero(cell);
+              break; // do nothing
+            case 1: // sf > 0 && *sfPtr == 0
               setValues(cell,sf,dx,dy,dz);
               break;
-            case 2:
+            case 2: // sf == 0 && *sfPtr > 0
               if( (plint)(*idPtr) == id )
                 setToZero(cell);
-              // else do nothing
-              break;
-            case 3:
-              if( sf >= *sfPtr || (plint)(*idPtr) == id )
+              break; // else do nothing
+            case 3: // sf > 0 && *sfPtr > 0
+              if( sf > *sfPtr || (plint)(*idPtr) == id )
                 setValues(cell,sf,dx,dy,dz);
-              // else do nothing
+              break; // else do nothing
             }
 
           }
         }
       }
-    
+      
   }
 
   template<typename T, template<typename U> class Descriptor>
   T SetSingleSphere3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_, T r_)
   {
     plint const slicesPerDim = 6;
-    
     T const sliceWidth = 1./((T)slicesPerDim-1);
     T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
     
-
     if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r_+2)*(r_+2))
       return 0;
 
@@ -127,7 +123,7 @@ namespace plb{
     }
     *sfPtr = sf;
     *idPtr = (T) id;
-
+    
     if(initVelFlag && sf > SOLFRAC_MAX){
       Array<T,3> u(uPtr[0],uPtr[1],uPtr[2]);
       T uSqr = uPtr[0]+uPtr[0] + uPtr[1]+uPtr[1] + uPtr[2]+uPtr[2];
@@ -147,7 +143,7 @@ namespace plb{
     uPtr[1] = 0;
     uPtr[2] = 0;
     *sfPtr = 0;
-    *idPtr = (T) -1;
+    *idPtr = (T) 0;//-1;
   }
 
   /*
@@ -171,18 +167,26 @@ namespace plb{
   }
 
   template<typename T, template<typename U> class Descriptor>
+  SumForceTorque3D<T,Descriptor>::SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig)
+    : ReductiveBoxProcessingFunctional3D_L<T,Descriptor>(orig),
+      sumId(orig.sumId), x(orig.x), partId(orig.partId) {}
+  
+  template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
   {
     static plint partId = Descriptor<T>::ExternalField::particleIdBeginsAt,
       fx = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt,
       fy = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+1,
       fz = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+2;
-      //solfrac_id = Descriptor<T>::ExternalField::volumeFractionBeginsAt;
-      // solfrac_id = Descriptor<T>::ExternalField::bBeginsAt;
 
     Dot3D relativePosition = lattice.getLocation();
     
     plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
+
+    std::cout << global::mpi().getRank() << " | " 
+              << domain.x0 << " " << domain.x1 << " "
+              << domain.y0 << " " << domain.y1 << " "
+              << domain.z0 << " " << domain.z1 << std::endl;
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -222,6 +226,10 @@ namespace plb{
         }
       }
     }
+    // std::cout << global::mpi().getRank() << " | " 
+    //           << getForce(0,0) << " "
+    //           << getForce(0,1) << " "
+    //           << getForce(0,2) << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>

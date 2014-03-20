@@ -44,14 +44,13 @@ namespace plb{
   struct SumForceTorque3D : public ReductiveBoxProcessingFunctional3D_L<T,Descriptor> {
   public:
     SumForceTorque3D(plint nPart_, T **x_);
-    SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig)
-      : ReductiveBoxProcessingFunctional3D_L<T,Descriptor>(orig),
-        sumId(orig.sumId), x(orig.x), partId(orig.partId) {}
+    SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig);
 
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
 
     SumForceTorque3D<T,Descriptor>* clone() const;
     void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+
     std::vector<double>& getForceTorque(){return this->getStatistics().getSumVect();}
 
     double getForce(plint partId, plint coord);

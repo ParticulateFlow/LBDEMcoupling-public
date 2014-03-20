@@ -49,26 +49,54 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
                           "SolidFraction",1.);
   vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
                           "PartId",1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,
+                                                 DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
+                          "fx",1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,
+                                                 DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
+                          "fy",1.);
+  vtkOut.writeData<float>(*computeExternalScalar(lattice,
+                                                 DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
+                          "fz",1.);
+
+  // for(plint i=0;i<DESCRIPTOR<T>::ExternalField::numScalars;i++){
+  //   std::stringstream s;
+  //   s << i;
+  //   vtkOut.writeData<float>(*computeExternalScalar(lattice,i),s.str().c_str(),1.);
+  // }
 
   pcout << "wrote " << fname << std::endl;
 }
 
-void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,int iT)
+void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, Box3D slice, plint iPop, plint iter)
 {
-    const plint imSize = 600;
-    const plint nx = lattice.getNx();
-    const plint ny = lattice.getNy();
-    const plint nz = lattice.getNz();
-    Box3D slice(0, nx-1, (ny-1)/2, (ny-1)/2, 0, nz-1);
-    //Box3D slice(0, nx-1, 0, ny-1, (nz-1)/2, (nz-1)/2);
-    ImageWriter<T> imageWriter("leeloo.map");
-    std::string fname(createFileName("u", iT, 6));
-    imageWriter.writeScaledGif(fname,
-                               *computeVelocityNorm(lattice, slice),
-                               imSize, imSize);
-    pcout << "wrote " << fname << std::endl;
+  std::stringstream ofname;
+  ofname << global::directories().getOutputDir();
+  ofname << "f_" << std::setfill('0') << std::setw(2) << iPop 
+         << "_" << std::setfill('0') << std::setw(8) << iter << ".dat";
+  
+  plb_ofstream of(ofname.str().c_str());
+  
+  of << *computePopulation(lattice,slice,iPop);
+ 
+  of.close();
+
 }
 
+void writeExternal(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, Box3D slice, plint which, 
+                   char* const prefix, plint iter)
+{
+  std::stringstream ofname;
+  ofname << global::directories().getOutputDir();
+  ofname << prefix << "_" << std::setfill('0') << std::setw(8) << iter << ".dat";
+  
+  plb_ofstream of(ofname.str().c_str());
+  
+  of << *computeExternalScalar(lattice,which,slice);
+ 
+  of.close();
+
+}
 int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
@@ -95,7 +123,11 @@ int main(int argc, char* argv[]) {
     argv_lmp[0] = argv[0];
 
     LAMMPS_NS::LAMMPS *lmp = new LAMMPS_NS::LAMMPS(1,argv_lmp,global::mpi().getGlobalCommunicator());
-
+    
+    std::stringstream cmd;
+    //    cmd << "variable nproc equal " << global::mpi().getSize();
+    
+    //lmp->input->one(cmd.str().c_str()); cmd.str("");
     lmp->input->file("in.lbdem");
 
     void *fix = locate_coupling_fix(lmp);
@@ -141,12 +173,10 @@ int main(int argc, char* argv[]) {
     
     const T maxT = (T)2.0;
     const T vtkT = 0.05;
-    const T gifT = 100;
     const T logT = 0.001;
 
     const plint maxSteps = units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
-    const plint gifSteps = units.getLbSteps(gifT);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
     writeLogFile(parameters, "3D sedimenting sphere");
@@ -174,12 +204,12 @@ int main(int argc, char* argv[]) {
     T **x_lb, **v_lb, **omega_lb;
     x_lb = new T*[nAtoms]; 
     v_lb = new T*[nAtoms]; 
-    f = new T*[nAtoms];
+    omega_lb = new T*[nAtoms];
 
     for(plint n=0;n<nAtoms;n++){
       x_lb[n] = new T[3];
       v_lb[n] = new T[3];
-      f[n] = new T[3];
+      omega_lb[n] = new T[3];
     }
 
     T *r_lb = new T[nAtoms];
@@ -187,13 +217,9 @@ int main(int argc, char* argv[]) {
       r_lb[n] = units.getLbLength(r[n][0]);
 
     T dt_dem = dt_phys/10.;
-    std::stringstream cmd;
     cmd << "variable t_step equal " << dt_dem;
     pcout << cmd.str() << std::endl;
     lmp->input->one(cmd.str().c_str()); cmd.str("");
-    // cmd << "variable dmp_time equal " << vtkT;
-    // pcout << cmd.str() << std::endl;
-    // lmp->input->one(cmd.str().c_str()); cmd.str("");
 
     cmd << "variable dmp_stp equal " << vtkSteps*10;
     pcout << cmd.str() << std::endl;
@@ -222,41 +248,39 @@ int main(int argc, char* argv[]) {
           v_lb[n][i] = units.getLbVel(v[n][i]);
         }
       }
+
       double **omega = 0;
       setSpheresOnLattice(lattice,x_lb,v_lb,omega,r_lb,id,nAtoms,false);
-      // applyProcessingFunctional
-      //   (new SetSpheres3D<T,DESCRIPTOR>(x_lb,v_lb,r_lb,id,nAtoms),
-      //    lattice.getBoundingBox(), lattice);
     
-      if(iT%vtkSteps == 0)
-        writeVTK(lattice,parameters,units,iT);
+      // if(iT%vtkSteps == 0)
+      //   writeVTK(lattice,parameters,units,iT);
 
-      if(iT%gifSteps == 0)
-        writeGif(lattice,iT);      
+      Box3D slice(0,parameters.getNx(),parameters.getNy()/2,parameters.getNy()/2,0,parameters.getNz());
+      for(plint i=0;i<DESCRIPTOR<T>::q;i++)
+        writePopulation(lattice,slice,i,iT*2);
 
       lattice.collideAndStream();
+
+      for(plint i=0;i<DESCRIPTOR<T>::q;i++)
+        writePopulation(lattice,slice,i,iT*2+1);
       
-      for(int n=0;n<nAtoms;n++)
-        for(int i=0;i<3;i++){
-          f[n][i] = 0;
-        }
+      writeExternal(lattice,slice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2,"fz",iT);
+      
+
       SumForceTorque3D<T,DESCRIPTOR> sft(nAtoms,x_lb);
-      //if(iT > 1) 
       applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
       
 
+      T nproc = (T) global::mpi().getSize();
       for(plint n=0;n<nAtoms;n++)
         for(int i=0;i<3;i++){
-          f[n][i] = units.getPhysForce(sft.getForceTorque()[6*n+i]);
+          f[n][i] = units.getPhysForce(sft.getForce(n,i))/nproc; 
+          // division by nproc is needed because LIGGGHTS also performs reduction
         }
+
 
       data_of_to_liggghts("dragforce","vector-atom",lmp,(void*)f,"double");
       lmp->input->one("run 10");
-
-      for(plint n=0;n<nAtoms;n++)
-        for(int i=0;i<3;i++){
-          f[n][i] = units.getPhysForce(sft.getForceTorque()[6*n+i]);
-        }
 
       if(iT%logSteps == 0){
         clock_t end = clock();
@@ -267,9 +291,12 @@ int main(int argc, char* argv[]) {
         start = clock();
         pcerr << iT*dt_dem*10 << " "
               << x[0][2] << " "
-              << v[0][2] << " "
-              << f[0][2] << " | " << v_inf << std::endl;
+              << v[0][2] << " " 
+              << f[0][2]*nproc << " " 
+              << " | " << v_inf << std::endl;
+
       }
+
       
     }
 
