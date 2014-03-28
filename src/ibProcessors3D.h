@@ -35,6 +35,22 @@ namespace plb{
     void setToZero(Cell<T,Descriptor>& c);
   };
   
+  /*
+   * this functional does nothing, it is just used to get 
+   * all the static variables right after looping over 
+   * the spheres
+   */
+  template<typename T, template<typename U> class Descriptor>
+  struct AttributeFunctional : public BoxProcessingFunctional3D_L<T,Descriptor> {
+  public:
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice) {}
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {modified[0] = modif::staticVariables;}
+
+    AttributeFunctional<T,Descriptor>* clone() const
+    { return new AttributeFunctional<T,Descriptor>(*this);}
+  };
+  
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
                            T **x, T **v, T **omega, T *r, int **id, plint nSpheres, bool initVelFlag);

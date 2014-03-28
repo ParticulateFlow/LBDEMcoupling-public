@@ -13,7 +13,8 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SetSingleSphere3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
   {
-    modified[0] = modif::staticVariables;
+    //modified[0] = modif::staticVariables;
+    modified[0] = modif::nothing;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -183,11 +184,6 @@ namespace plb{
     
     plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
 
-    std::cout << global::mpi().getRank() << " | " 
-              << domain.x0 << " " << domain.x1 << " "
-              << domain.y0 << " " << domain.y1 << " "
-              << domain.z0 << " " << domain.z1 << std::endl;
-
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -214,11 +210,11 @@ namespace plb{
           T dy = yGlobal - x[id][1];
           T dz = zGlobal - x[id][2];
 
+          // minimum image convention
           if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
           if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
           if(dz>nz/2) dz -= nz; if(dz<-nz/2) dz += nz;
 
-          // minimum image convention
           addTorque(id,0,dy*forceZ - dz*forceY);
           addTorque(id,1,-dx*forceZ + dz*forceX);
           addTorque(id,2,dx*forceY - dy*forceX);
@@ -452,6 +448,9 @@ namespace plb{
         }
       }
     }
+    // this one returns modif::staticVariables and forces an update of those along processor
+    // boundaries
+    applyProcessingFunctional(new AttributeFunctional<T,Descriptor>(),lattice.getBoundingBox(),lattice);
   }
 
 };
