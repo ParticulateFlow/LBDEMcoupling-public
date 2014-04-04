@@ -39,6 +39,12 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
 
+  for(plint i=0;i<DESCRIPTOR<T>::q;i++){
+    std::stringstream s;
+    s << "f " << i;
+    vtkOut.writeData<float>(*computePopulation(lattice,i),s.str().c_str(),1.);
+  }
+
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -57,20 +63,7 @@ void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iPop, plin
 
 
 
-class PressureGradient {
-public:
-  PressureGradient(T pHi_, T pLo_, plint nz_) 
-    : pHi(pHi_), pLo(pLo_), nz(nz_)
-    { }
-  void operator() (plint iX, plint iY, plint iZ, T& density, Array<T,3>& velocity) const
-  {
-    velocity.resetToZero();
-    density = pHi - (pHi-pLo)*(T)iZ/(T)(nz-1);
-  }
-private:
-  T pHi, pLo;
-  plint nz;
-};
+
 
 int main(int argc, char* argv[]) {
 
@@ -100,7 +93,7 @@ int main(int argc, char* argv[]) {
 
     const T nu_f = 1e-3;
 
-    const T lx = 0.2, ly = 0.2, lz = 0.2*lFactor;
+    const T lx = 0.2, ly = 0.02, lz = 0.2*lFactor;
     
     T gradP = deltaP/lz;
     T lx_eff = lx;//*(T)(N-1)/(T)N;
@@ -110,8 +103,8 @@ int main(int argc, char* argv[]) {
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
-    const T maxT = (T)5;
-    const T vtkT = 0.00005;
+    const T maxT = (T)1;
+    const T vtkT = 0.5;
     const T logT = 0.5;
 
     const plint maxSteps = units.getLbSteps(maxT);
@@ -128,15 +121,12 @@ int main(int argc, char* argv[]) {
     lattice.periodicity().toggle(1,true);
     lattice.periodicity().toggle(2,true);
 
-    Box3D inlet(1,nx-2,0,ny-1,0,0), outlet(1,nx-2,0,ny-1,nz-1,nz-1);
-    Box3D backWall(0,0,0,ny-1,0,nz-1), frontWall(nx-1,nx-1,0,ny-1,0,nz-1);
-    defineDynamics(lattice,backWall,new BounceBack<T,DESCRIPTOR>);
-    defineDynamics(lattice,frontWall,new BounceBack<T,DESCRIPTOR>);
+    Box3D inlet(0,nx-1,0,ny-1,0,0), outlet(0,nx-1,0,ny-1,nz-1,nz-1);
     
-    T deltaRho = units.getLbRho(deltaP)*(T)(nz)/(T)(nz+1);
-    T gradRho = units.getLbRho(gradRho);
+    T deltaRho = units.getLbRho(deltaP);//*(T)(nz)/(T)(nz+1);
+
     initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-                             PressureGradient(1+deltaRho/2.,1-deltaRho/2, nz) );
+                             PressureGradient<T>(1.+0.5*deltaRho,1.-0.5*deltaRho, nz, 2) );
 
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
@@ -150,44 +140,17 @@ int main(int argc, char* argv[]) {
     clock_t start = clock();    
     for (plint iT=0; iT<maxSteps; ++iT) {
 
-      // if(iT%vtkSteps == 0)
-      //   writeVTK(lattice,parameters,units,iT);
+      if(iT%vtkSteps == 0)
+        writeVTK(lattice,parameters,units,iT);
+
 
       pcerr << units.getPhysPress(computeAverageDensity(lattice,inlet)) << " " 
             << units.getPhysPress(computeAverageDensity(lattice,outlet)) << std::endl;
 
+      PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,1.+0.5*deltaRho,1.-0.5*deltaRho,inlet,outlet,2,1,-1);
+      ppm.preColl(lattice);
       lattice.collideAndStream();
-
-      T rhoAvgIn = computeAverageDensity(lattice,inlet);
-      T rhoAvgOut = computeAverageDensity(lattice,outlet);
-
-      MultiScalarField3D<T> rhoIn = *computeDensity(lattice,inlet);
-      MultiScalarField3D<T> rhoOut = *computeDensity(lattice,outlet);
-      
-      rhoIn.get(nx/2,ny/2,0) = 0.;
-      
-      pcout << "asdfasdfasdf " 
-            << rhoIn.get(nx/2,ny/2,0) << std::endl;
-
-      pcout << "qewrqwerqwer " 
-            << rhoOut.get(nx/2,ny/2,nz-1) << std::endl;
-
-      rhoOut = rhoIn;
-      //addInPlace(rhoIn,rhoOut,rhoOut.getBoundingBox());
-
-      pcout << "asdf****asdf " 
-            << rhoIn.get(nx/2,ny/2,0) << std::endl;
-      rhoOut.get(nx/2,ny/2,0) += 1;
-      pcout << "qewr****qwer "
-            << rhoOut.get(nx/2,ny/2,0) << std::endl;
-
-      applyProcessingFunctional(new PeriodicPressureFunctional3D<T,DESCRIPTOR>(deltaRho, rhoAvgOut,2, 1),
-                                inlet,lattice);
-      applyProcessingFunctional(new PeriodicPressureFunctional3D<T,DESCRIPTOR>(-deltaRho, rhoAvgIn,2, -1),
-                                outlet,lattice);
-
-      // for(plint iPop=0;iPop<19;iPop++)
-      //   writePopulation(lattice,iPop,iT);
+      ppm.postColl(lattice);
 
       if(iT%logSteps == 0){
         clock_t end = clock();
