@@ -34,15 +34,20 @@ namespace plb {
   (Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
    ScalarField3D<T2> &rho, TensorField3D<T3,nDim> &u)
   {
+    // std::cout << global::mpi().getRank() << " "
+    //           << domain.x0 << " " << domain.x1 << " | "
+    //           << domain.y0 << " " << domain.y1 << " | "
+    //           << domain.z0 << " " << domain.z1 << std::endl;
+    bool print = global::mpi().getRank() == 3;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
-          
           T2 rhoPer = rho.get(iX,iY,iZ);
           Array<T3,3> uPer = u.get(iX,iY,iZ);
           
           T2 rhoTargetCell = rhoPer + (rhoTarget - rhoAvg);
+
 
           for(IndexVec::iterator it = rescalePop.begin();
               it != rescalePop.end(); it++){
@@ -50,6 +55,7 @@ namespace plb {
             cell[ii] -= computeEquilibrium(cell,ii,rhoPer,uPer);
             cell[ii] += computeEquilibrium(cell,ii,rhoTargetCell,uPer);
           }
+
         }
       }
     }
@@ -132,7 +138,7 @@ namespace plb {
     std::vector<MultiBlock3D*> vecIn, vecOut;
     vecIn.push_back(&lattice); vecIn.push_back(&rho); vecIn.push_back(&u);
     vecOut.push_back(&lattice); vecOut.push_back(&rho); vecOut.push_back(&u);
-    
+
     applyProcessingFunctional
       (new KimPeriodicPressureFunctional3D<T,Descriptor,T,T,Descriptor<T>::d>(rhoIn, 
                                                                               rhoAvgOut,dimension,inDirection),

@@ -73,7 +73,7 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   T SetSingleSphere3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_, T r_)
   {
-    plint const slicesPerDim = 6;
+    plint const slicesPerDim = 5;
     T const sliceWidth = 1./((T)slicesPerDim-1);
     T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
     
@@ -89,7 +89,7 @@ namespace plb{
     dy_ = dy_ - 0.5;
     dz_ = dz_ - 0.5;
 
-    T solFrac(0.);
+    plint n(0);
     for(plint i=0;i<slicesPerDim;i++){
       T dx = dx_+i*sliceWidth;
       T dx_sq(dx*dx);
@@ -99,12 +99,11 @@ namespace plb{
         for(plint k=0;k<slicesPerDim;k++){
           T dz = dz_+k*sliceWidth;
           T dz_sq(dz*dz);
-          if(dx_sq + dy_sq + dz_sq < r_sq)
-            solFrac += fraction;
+          n += (plint)(dx_sq + dy_sq + dz_sq < r_sq);
         }
       }
     }
-    return solFrac;
+    return fraction*((T)n);
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -222,10 +221,6 @@ namespace plb{
         }
       }
     }
-    // std::cout << global::mpi().getRank() << " | " 
-    //           << getForce(0,0) << " "
-    //           << getForce(0,1) << " "
-    //           << getForce(0,2) << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>

@@ -17,7 +17,8 @@ namespace plb{
     SetSingleSphere3D(T *x_, T *v_, T r_, int id_)
       : x(x_),v(v_),omega(0),r(r_),id(id_), initVelFlag(false) {}
     SetSingleSphere3D(const SetSingleSphere3D &orig)
-      : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),id(orig.id) {}
+      : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),
+      id(orig.id),initVelFlag(orig.initVelFlag) {}
 
     Box3D getBoundingBox() const { return Box3D(x[0]-r-2,x[0]+r+2,
                                                 x[1]-r-2,x[1]+r+2,
