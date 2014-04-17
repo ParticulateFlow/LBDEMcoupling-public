@@ -38,7 +38,7 @@ namespace plb {
     //           << domain.x0 << " " << domain.x1 << " | "
     //           << domain.y0 << " " << domain.y1 << " | "
     //           << domain.z0 << " " << domain.z1 << std::endl;
-    bool print = global::mpi().getRank() == 3;
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {

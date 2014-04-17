@@ -5,7 +5,15 @@
 #ifndef IB_PROCESSORS_3D_H
 #define IB_PROCESSORS_3D_H
 
+#include "liggghtsCouplingWrapper.h"
+#include "physunits.h"
+
 namespace plb{
+  template<typename T>
+  struct ParticleData {
+    typedef typename std::vector<Array<T,3> > ParticleDataArrayVector;
+    typedef typename std::vector<T> ParticleDataScalarVector;
+  };
 
   template<typename T, template<typename U> class Descriptor>
   struct SetSingleSphere3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
@@ -52,15 +60,25 @@ namespace plb{
     { return new AttributeFunctional<T,Descriptor>(*this);}
   };
   
+  // template<typename T, template<typename U> class Descriptor>
+  // void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
+  //                          T **x, T **v, T **omega, T *r, int **id, plint nSpheres, bool initVelFlag);
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
-                           T **x, T **v, T **omega, T *r, int **id, plint nSpheres, bool initVelFlag);
+                           LiggghtsCouplingWrapper &wrapper,
+                           PhysUnits3D<T> const &units,
+                           bool initVelFlag);
 
+
+  template<typename T, template<typename U> class Descriptor>
+  void getForcesFromLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
+                            LiggghtsCouplingWrapper &wrapper,
+                            PhysUnits3D<T> const &units);
   
   template<typename T, template<typename U> class Descriptor>
   struct SumForceTorque3D : public ReductiveBoxProcessingFunctional3D_L<T,Descriptor> {
   public:
-    SumForceTorque3D(plint nPart_, T **x_);
+    SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x);
     SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig);
 
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
@@ -75,7 +93,7 @@ namespace plb{
 
   private:
     std::vector<plint> sumId;
-    T **x;
+    typename ParticleData<T>::ParticleDataArrayVector &x;
     plint const *partId;
     void addForce(plint partId, plint coord, T value);
     void addTorque(plint partId, plint coord, T value);

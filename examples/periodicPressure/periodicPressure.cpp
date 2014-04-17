@@ -39,55 +39,70 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
 
-  for(plint i=0;i<DESCRIPTOR<T>::q;i++){
-    std::stringstream s;
-    s << "f " << i;
-    vtkOut.writeData<float>(*computePopulation(lattice,i),s.str().c_str(),1.);
-  }
-
   pcout << "wrote " << fname << std::endl;
 }
 
-void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iPop, plint iT)
+void writeAscii(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
+                PhysUnits3D<T> &units)
 {
+  T p_fact = units.getPhysForce(1)/pow(units.getPhysLength(1),2) / 3.;
+
   std::stringstream fname_stream;
-  fname_stream << global::directories().getOutputDir()
-               << "f_" << setfill('0') << setw(2) << iPop << "_"
-               << setfill('0') << setw(8) << iT << ".dat";
+  
+  fname_stream << global::directories().getOutputDir() << "_u.dat";
+  plb_ofstream ofile_u(fname_stream.str().c_str());
 
-  plb_ofstream ofile(fname_stream.str().c_str());
-  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
-               0,lattice.getNy(),0,lattice.getNz());
-  ofile << *computePopulation(lattice, domain, iPop);
+  fname_stream.str("");
+
+  fname_stream << global::directories().getOutputDir() << "_p.dat";
+  plb_ofstream ofile_p(fname_stream.str().c_str());
+
+  fname_stream.str("");
+
+  fname_stream << global::directories().getOutputDir() << "_rho.dat";
+  plb_ofstream ofile_rho(fname_stream.str().c_str());
+
+  for(plint i=0;i<lattice.getNz();i++){
+    Box3D slice(0,lattice.getNx()-1,lattice.getNy()/2,lattice.getNy()/2,i,i);
+    ofile_u << setprecision(10) 
+            << *multiply( *computeVelocityComponent(lattice,slice,2),
+                          units.getPhysVel(1./*units.getLbParam().getLatticeU()*/) )
+            << endl;
+    MultiScalarField3D<T> rho(*computeDensity(lattice,slice));
+    MultiScalarField3D<T> p(*subtract(rho,1.));
+    ofile_rho << setprecision(10) << *multiply(rho,units.getPhysDensity(1.)) << endl;
+    multiplyInPlace(p,p_fact);
+    ofile_p << setprecision(10) << p << endl;
+  }
 }
-
-
-
-
 
 int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
-    global::directories().setOutputDir("./tmp/");
 
     plint N;
     T uMax;
-    T deltaP;
+    T gradP;
     T lFactor;
+    std::string outDir;
     try {
         global::argv(1).read(N);
-        global::argv(2).read(deltaP);
+        global::argv(2).read(gradP);
         global::argv(3).read(uMax);
         global::argv(4).read(lFactor);
+        global::argv(5).read(outDir);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
         pcout << "1 : N\n";
-        pcout << "2 : deltaP\n";
+        pcout << "2 : gradP\n";
         pcout << "3 : uMax\n";
         pcout << "4 : lengthFactor\n";
+        pcout << "5 : outDir\n";
         exit(1);
     }
+
+    global::directories().setOutputDir(outDir);
 
     const T rho_f = 1000;
 
@@ -95,7 +110,6 @@ int main(int argc, char* argv[]) {
 
     const T lx = 0.2, ly = 0.02, lz = 0.2*lFactor;
     
-    T gradP = deltaP/lz;
     T lx_eff = lx;//*(T)(N-1)/(T)N;
     T u_phys = gradP*lx_eff*lx_eff/(nu_f*8*rho_f);
     
@@ -103,8 +117,8 @@ int main(int argc, char* argv[]) {
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
-    const T maxT = (T)1;
-    const T vtkT = 0.5;
+    const T maxT = (T)30.;
+    const T vtkT = 0.1;
     const T logT = 0.5;
 
     const plint maxSteps = units.getLbSteps(maxT);
@@ -122,11 +136,13 @@ int main(int argc, char* argv[]) {
     lattice.periodicity().toggle(2,true);
 
     Box3D inlet(0,nx-1,0,ny-1,0,0), outlet(0,nx-1,0,ny-1,nz-1,nz-1);
-    
-    T deltaRho = units.getLbRho(deltaP);//*(T)(nz)/(T)(nz+1);
+    T gradRho = units.getLbRho(gradP)/units.getLbLength(1.); 
+    // T deltaRho = units.getLbRho(gradP*lz)*((T)(nz-1)/(T)nz);
+    T deltaRho = gradRho*((T)nz-2.);//((T)nz-1.);
+    T rhoHi = 1.+0.5*deltaRho, rhoLo = 1.-0.5*deltaRho;
 
     initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-                             PressureGradient<T>(1.+0.5*deltaRho,1.-0.5*deltaRho, nz, 2) );
+                             PressureGradient<T>(rhoHi,rhoLo, nz, 2) );
 
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
@@ -137,20 +153,28 @@ int main(int argc, char* argv[]) {
           << "vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
     
-    clock_t start = clock();    
-    for (plint iT=0; iT<maxSteps; ++iT) {
+    T umax(0.),umax_old(0.), conv_crit(1e-4);
+    plint aveSteps = 10;
 
-      if(iT%vtkSteps == 0)
-        writeVTK(lattice,parameters,units,iT);
+    clock_t start = clock();  
+    // for (plint iT=0; iT<maxSteps; ++iT) {
+    for (plint iT=0; /*iT<maxSteps*/; ++iT) {
+
+      // if(iT%vtkSteps == 0)
+      //   writeVTK(lattice,parameters,units,iT);
 
 
       pcerr << units.getPhysPress(computeAverageDensity(lattice,inlet)) << " " 
             << units.getPhysPress(computeAverageDensity(lattice,outlet)) << std::endl;
 
-      PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,1.+0.5*deltaRho,1.-0.5*deltaRho,inlet,outlet,2,1,-1);
+      PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,2,1,-1);
       ppm.preColl(lattice);
       lattice.collideAndStream();
       ppm.postColl(lattice);
+
+      if(iT%logSteps >= logSteps-aveSteps){
+        umax += computeMax(*computeVelocityNorm(lattice));
+      }
 
       if(iT%logSteps == 0){
         clock_t end = clock();
@@ -159,6 +183,19 @@ int main(int argc, char* argv[]) {
         pcout << "time: " << time << " " ;
         pcout << "calculating at " << mlups << " MLU/s" << std::endl;
         start = clock();
+        umax /= (T)aveSteps;
+        
+        T delta_umax = abs((umax-umax_old)/umax);
+       
+        pcout << "Maximum velocity in domain: " << setprecision(10) << units.getPhysVel(umax) 
+              << " | old: " << setprecision(10) << units.getPhysVel(umax_old) << std::endl;
+        pcout << "Relative change in maximum velocity: " << delta_umax 
+              << " , convergence criterion: " << conv_crit << std::endl;
+        if(delta_umax < conv_crit) break;
+
+        umax_old = umax;
+        umax = 0;
       }
     }
+    writeAscii(lattice,units);
 }

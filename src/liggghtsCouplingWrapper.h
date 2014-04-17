@@ -1,3 +1,14 @@
+
+#ifndef LIGGGHTSCOUPLINGWRAPPER_H
+#define LIGGGHTSCOUPLINGWRAPPER_H
+
+// necessary LAMMPS/LIGGGHTS includes
+#include "lammps.h"
+#include "input.h"
+#include "library.h"
+#include "library_cfd_coupling.h"
+
+
 class LiggghtsCouplingWrapper {
 public:
   LiggghtsCouplingWrapper(char **argv, MPI_Comm communicator)
@@ -60,3 +71,5 @@ public:
 
 };
 
+
+#endif /* LIGGGHTSCOUPLINGWRAPPER_H */

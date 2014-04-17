@@ -5,7 +5,7 @@ public:
   typedef std::vector<Array<T,3> > ParticleDataArrayVector;
   typedef std::vector<T> ParticleDataScalarVector;
   //  LbParticleData()
-  updateParticledata(LiggghtsCouplingWrapper const &wrapper, PhysUnits3D const &units)
+  updateParticleData(LiggghtsCouplingWrapper const &wrapper, PhysUnits3D const &units)
   {
     plint nPart = x.size();
     plint nPartNew = wrapper.getNumParticles();
@@ -25,7 +25,7 @@ public:
       v.push_back(tmp);
       tmp.from_cArray(wrapper.omega[iPart]);
       omega.push_back(tmp);
-      id.push_back((T)wrapper.id[iPart][0]);
+      id.push_back( round( (T)wrapper.id[iPart][0] ) );
       // add zeros for force and torque
       f.push_back(Array<T,3>(0.,0.,0.));
       t.push_back(Array<T,3>(0.,0.,0.));

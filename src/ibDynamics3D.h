@@ -90,10 +90,8 @@ template<typename T, template<typename U> class Descriptor>
   T dynamicsTemplatesImplIB<T,Descriptor>::ib_collision(Array<T,Descriptor<T>::q>& f, T rhoBar,
     T* externalScalars, Array<T,Descriptor<T>::d> const& j, T omega)
   {
-    T invRho = Descriptor<T>::invRho(rhoBar),
-      jSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(j);
 
-    T solidFraction = externalScalars[Descriptor<T>::ExternalField::volumeFractionBeginsAt];
+    T const solidFraction = externalScalars[Descriptor<T>::ExternalField::volumeFractionBeginsAt];
 
     T* force = &externalScalars[Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt];
     for(int i=0;i<Descriptor<T>::d;i++) force[i] = 0.;
@@ -102,27 +100,29 @@ template<typename T, template<typename U> class Descriptor>
     if(solidFraction < SOLFRAC_MIN) // pure liquid --> bgk collision
       return dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_inc_collision(f, rhoBar, j, omega);
 
+    T const invRho = Descriptor<T>::invRho(rhoBar);
+    T const jSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(j);
+
     Array<T,Descriptor<T>::d> uPart;
     uPart.from_cArray(&externalScalars[Descriptor<T>::ExternalField::boundaryVelocityBeginsAt]);
 
-    for(int i=0;i<Descriptor<T>::d;i++) uPart[i] /= invRho;
+    for(int i=0;i<Descriptor<T>::d;i++) uPart[i] *= (1.+rhoBar);
 
-    T uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
-    //T B = solidFraction;
-    T B = solidFraction*(1./omega-0.5)/((1.- solidFraction) + (1./omega-0.5));
+    T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
+    T const ooo = 1./omega-0.5;
+    T const B = solidFraction*ooo/((1.- solidFraction) + ooo);
     
-    //externalScalars[Descriptor<T>::ExternalField::bBeginsAt] = B;
 
     if(B > SOLFRAC_MAX){ // then we have pure solid and do not need any collision
-      for(int iPop=1,iOpposite=Descriptor<T>::q/2+1;iPop <= Descriptor<T>::q/2;iPop++,iOpposite++){
-    
-        T bias = 
+      for(int iPop=1;iPop <= Descriptor<T>::q/2;iPop++){
+        plint iOpposite = iPop+Descriptor<T>::q/2;
+        T const bias = 
           dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium 
 	  (iPop, rhoBar, invRho, uPart, uPartSqr ) -
 	  dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium 
 	  (iOpposite, rhoBar, invRho, uPart, uPartSqr );
 	
-        T bounce = 0.5*(f[iOpposite] - f[iPop] + bias);
+        T const bounce = 0.5*(f[iOpposite] - f[iPop] + bias);
 
         
         f[iPop] += bounce;
@@ -133,25 +133,26 @@ template<typename T, template<typename U> class Descriptor>
 
       }
     } else{
-      T omega_1minB = omega*(1.-B);
+      T const omega_1minB = omega*(1.-B);
 
       f[0] -= 
 	omega_1minB*( f[0] - 
 		      dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium (0, rhoBar, invRho, j, jSqr ) );
       
-      for(int iPop=1,iOpposite=Descriptor<T>::q/2+1;iPop <= Descriptor<T>::q/2;iPop++,iOpposite++){
+      for(int iPop=1;iPop <= Descriptor<T>::q/2;iPop++){
+        plint iOpposite = iPop+Descriptor<T>::q/2;
         
-        T bias =
+        T const bias =
 	  dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium
           (iPop, rhoBar, invRho, uPart, uPartSqr ) -
 	  dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium
           (iOpposite, rhoBar, invRho, uPart, uPartSqr );
         
-        T bounce = 0.5*B*(f[iOpposite] - f[iPop] + bias);
+        T const bounce = 0.5*B*(f[iOpposite] - f[iPop] + bias);
         
-        T deltaFColl = f[iPop] 
+        T const deltaFColl = f[iPop] 
 	  - dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium (iPop, rhoBar, invRho, j, jSqr );
-        T deltaFCollOp = f[iOpposite] 
+        T const deltaFCollOp = f[iOpposite] 
 	  - dynamicsTemplatesImpl<T,Descriptor<T> >::bgk_ma2_equilibrium (iOpposite, rhoBar, invRho, j, jSqr );
         
         

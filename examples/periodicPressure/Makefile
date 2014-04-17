@@ -24,7 +24,7 @@ optimize     = true
 # Set debug mode and debug flags on/off
 debug        = false
 # Set profiling flags on/off
-profile      = true
+profile      = false
 # Set MPI-parallel mode on/off (parallelism in cluster-like environment)
 MPIparallel  = true
 # Set SMP-parallel mode on/off (shared-memory parallelism)
@@ -47,13 +47,13 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor
+compileFlags = -Wall -Wnon-virtual-dtor -Wno-write-strings
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
 optimFlags   = -O3
 # Compiler flags to use when debug mode is on
-debugFlags   = -g
+debugFlags   = -ggdb
 # Compiler flags to use when profile mode is on
 profileFlags = -pg
 
