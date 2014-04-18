@@ -69,7 +69,24 @@ public:
   double **x, **v, **f, **t, **r, **omega;
   int **id;
 
+  void setVariable(char const *name, double value)
+  {
+    std::stringstream cmd;
+    cmd << "variable " << name << " equal " << value;
+    plb::pcout << cmd.str() << std::endl;
+    execCommand(cmd);
+  }
+  void setVariable(char const *name, std::string &value)
+  {
+    std::stringstream cmd;
+    cmd << "variable " << name << " string " << value;
+    plb::pcout << cmd.str() << std::endl;
+    execCommand(cmd);
+  }
+
+
 };
+
 
 
 #endif /* LIGGGHTSCOUPLINGWRAPPER_H */
