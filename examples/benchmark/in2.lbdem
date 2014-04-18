@@ -1,0 +1,21 @@
+
+timestep        ${t_step}      
+
+# thermo settings
+fix		ts all check/timestep/gran 10000 0.1 0.1
+compute		1 all erotate/sphere
+thermo_style	custom step atoms ke c_1 f_ts[1] f_ts[2] cpu
+thermo		10000
+thermo_modify	lost ignore norm no flush yes
+compute_modify	thermo_temp dynamic yes
+
+# particle dump
+variable dmp_fname string ${dmp_dir}d_*.liggghts
+
+dump		dmp all custom ${dmp_stp} ${dmp_fname} & 
+		id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius 
+
+# dump		dmp all custom ${dmp_stp} ${dmp_dir}d_*.liggghts & 
+# 		id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius 
+	
+	
