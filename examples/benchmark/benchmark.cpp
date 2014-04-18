@@ -103,23 +103,32 @@ int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
 
-    const T uMax = 0.02;
+    T uMax;
 
     plint N;
-    T deltaP;
     
+    T nu_f,d_part,v_frac, v_inf;
+
     std::string outDir;
     
     try {
-        global::argv(1).read(N);
-        global::argv(2).read(deltaP);
-        global::argv(3).read(outDir);
+        global::argv(1).read(d_part);
+        global::argv(2).read(N);
+        global::argv(3).read(v_frac);
+        global::argv(4).read(nu_f);
+        global::argv(5).read(v_inf);
+        global::argv(6).read(uMax);
+        global::argv(7).read(outDir);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
-        pcout << "1 : N\n";
-        pcout << "2 : deltaP\n";
-        pcout << "3 : outDir\n";
+        pcout << "1 : d_part\n";
+        pcout << "2 : N per particle diameter\n";
+        pcout << "3 : particle volume fraction\n";
+        pcout << "4 : nu_fluid\n";
+        pcout << "5 : estimated v_inf\n";
+        pcout << "6 : uMax\n";
+        pcout << "7 : outDir\n";
         exit(1);
     }
 
@@ -134,81 +143,75 @@ int main(int argc, char* argv[]) {
     argv_lmp[0] = argv[0];
 
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
+    
+    wrapper.setVariable("r_part",d_part/2);
+    wrapper.setVariable("v_frac",v_frac);
+    
     wrapper.execFile("in.lbdem");
     wrapper.allocateVariables();
 
-    const T nu_f = 1e-3;
+    T g = 9.81;
 
-    const T lx = 0.8, ly = 0.2, lz = 0.2;
+    const T lx = 1., ly = 1., lz = 2.;
 
     wrapper.dataFromLiggghts();
 
-    T gradP = deltaP/lz;
-    T lx_eff = lx;//*(T)(N-1)/(T)N;
-    T u_phys = gradP*lx_eff*lx_eff/(nu_f*8*rho_f);
+    T r_ = wrapper.r[0][0];
+    T rho_s = 1100.;
+    T m = r_*r_*r_*4./3.*3.14*rho_s;
 
+    // T v_inf_calc = 2.*(rho_s-rho_f)/rho_f*g*r_*r_/9./nu_f; // stokes
+    T v_inf_calc = sqrt(4./3.*0.44*(rho_s-rho_f)/rho_f*g*2.*r_); // something else
+
+    pcout << "v_inf: " << v_inf << " m: " << m << " r: " << r_ << std::endl;
     
-    PhysUnits3D<T> units(lz,u_phys,nu_f,lx,ly,lz,N,uMax,rho_f);
+    PhysUnits3D<T> units(2.*r_,v_inf,nu_f,lx,ly,lz,N,uMax,rho_f);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
     plint demSubsteps = 10;
     
-    const T maxT = (T)5000.;
-    const T vtkT = 1.;
-    const T gifT = 100;
-    const T logT = 0.02;
+    const T maxT = ceil(3.*lz/v_inf);// (T)1.;
+    const T vtkT = 0.2;
+    const T logT = 0.0000001;
 
-    const plint maxSteps = units.getLbSteps(maxT);
+    const plint maxSteps = 3;//units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
-    const plint gifSteps = units.getLbSteps(gifT);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
     writeLogFile(parameters, "rect channel showcase");
 
     plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
 
-    MultiBlockLattice3D<T, DESCRIPTOR> lattice (nx,ny,nz, new DYNAMICS );
-
-    lattice.periodicity().toggle(0,true);
-
-    Box3D inlet(0,0,1,ny-2,1,nz-2), outlet(nx-1,nx-1,1,ny-2,1,nz-2);
-    
-    T deltaRho = units.getLbRho(deltaP);
-    T gradRho = units.getLbRho(gradRho);
-    // T rhoHi = 1.+0.5*deltaRho, rhoLo = 1.-0.5*deltaRho;
-    T rhoHi = 1., rhoLo = 1.-deltaRho;
-
-    initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-                             PressureGradient<T>(rhoHi,rhoLo,nz,0) );
-
-    lattice.initialize();
-
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
           << "dt_phys: " << dt_phys << "\n"
-          << "u_phys: " << u_phys << "\n"
+          << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
+          << "v_inf: " << v_inf << "\n"
           << "Re : " << parameters.getRe() << "\n"
-          << "deltaRho : " << deltaRho << "\n"
           << "vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
 
+    MultiBlockLattice3D<T, DESCRIPTOR> lattice (nx,ny,nz, new DYNAMICS );
+
+
+    lattice.initialize();
+
     T dt_dem = dt_phys/(T)demSubsteps;
     std::stringstream cmd;
-    cmd << "variable t_step equal " << dt_dem;
-    pcout << cmd.str() << std::endl;
-    wrapper.execCommand(cmd);
-    cmd.str("");
+    // cmd << "variable t_step equal " << dt_dem;
+    // pcout << cmd.str() << std::endl;
+    // wrapper.execCommand(cmd);
+    // cmd.str("");
 
-    cmd << "variable dmp_stp equal " << vtkSteps*demSubsteps;
-    pcout << cmd.str() << std::endl;
-    wrapper.execCommand(cmd);
-    cmd.str("");
+    wrapper.setVariable("t_step",dt_dem);
+    wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
+    wrapper.setVariable("dmp_dir",demOutDir);
 
-    cmd << "variable dmp_dir string " << demOutDir;
-    pcout << cmd.str() << std::endl;
-    wrapper.execCommand(cmd);
-    cmd.str("");
+    // cmd << "variable dmp_dir string " << demOutDir;
+    // pcout << cmd.str() << std::endl;
+    // wrapper.execCommand(cmd);
+    // cmd.str("");
 
     wrapper.execFile("in2.lbdem");
     wrapper.execCommand("run 9 upto");
@@ -225,14 +228,10 @@ int main(int argc, char* argv[]) {
       setSpheresOnLattice(lattice,wrapper,units,initWithVel);
       
 
-      //if(iT%vtkSteps == 0 && iT > 3000)
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
         writeVTK(lattice,parameters,units,iT);
 
-      PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,0,1,-1);
-      ppm.preColl(lattice);
       lattice.collideAndStream();
-      ppm.postColl(lattice);
 
       getForcesFromLattice(lattice,wrapper,units);
 
@@ -243,13 +242,11 @@ int main(int argc, char* argv[]) {
       if(iT%logSteps == 0){
         clock_t end = clock();
         T time = difftime(end,start)/((T)CLOCKS_PER_SEC);
-        T mlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*units.getLbSteps(logT)))/time/1e6;
+        T mlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*logSteps))/time/1e6;
         pcout << "time: " << time << " " ;
         pcout << "calculating at " << mlups << " MLU/s" << std::endl;
         start = clock();
       }
-
-      // pcerr << iT << " " << x[0][0] << " " << f[0][0] << std::endl;
     }
 
 }
