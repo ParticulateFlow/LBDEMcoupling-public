@@ -17,7 +17,7 @@
 # Leading directory of the Palabos source code
 palabosRoot   = ${PALABOS_ROOT}
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = dragValidation.cpp
+projectFiles = dragTorqueValidation.cpp
 
 # Set optimization flags on/off
 optimize     = true
@@ -35,18 +35,19 @@ SMPparallel  = false
 usePOSIX     = true
 
 # Path to external libraries (other than Palabos)
-libraryPaths =
+libraryPaths = ${LIGGGHTS_ROOT}/src
 # Path to inlude directories (other than Palabos)
-includePaths = ../../src/ 
+includePaths = ${LBDEM_ROOT}/src/ ${LIGGGHTS_ROOT}/src
 # Dynamic and static libraries (other than Palabos)
-libraries    = 
+#libraries    = liblmp_fedora-debug.a
+libraries    = liblmp_fedora.a
 
 # Compiler to use without MPI parallelism
 serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor
+compileFlags = -Wall -Wnon-virtual-dtor -Wno-write-strings
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
