@@ -1,4 +1,4 @@
-# Compiled Object files
+#M Compiled Object files
 *.slo
 *.lo
 *.o
@@ -27,15 +27,20 @@ post/
 # image and video files
 *.avi
 *.gif
+*.jpg
+*.pdf
+*.eps
 
 # misc files
 octave*
 core
 gmon.out
 log.*
+perf.*
 
 # collected bullsh*t
 examples/dragValidationLiggghts/u0*
 examples/sedimentingSphere/*E*
 #examples/sedimentingSphere/E*
+Re*-N*
 
