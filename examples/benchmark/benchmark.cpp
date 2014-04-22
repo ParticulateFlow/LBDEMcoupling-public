@@ -172,10 +172,10 @@ int main(int argc, char* argv[]) {
     plint demSubsteps = 10;
     
     const T maxT = ceil(3.*lz/v_inf);// (T)1.;
-    const T vtkT = 0.2;
+    const T vtkT = 100;
     const T logT = 0.0000001;
 
-    const plint maxSteps = 3;//units.getLbSteps(maxT);
+    const plint maxSteps = 100;//units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 

@@ -154,8 +154,9 @@ namespace plb{
 
   /* --------------------------------------------- */
   template<typename T, template<typename U> class Descriptor>
-  SumForceTorque3D<T,Descriptor>::SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x_)
-    : x(x_)
+  SumForceTorque3D<T,Descriptor>::SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x_,
+                                                   T *force_, T *torque_)
+    : x(x_), force(force_), torque(torque_)
   {
     
     /*
@@ -164,14 +165,12 @@ namespace plb{
      * and the torques are tracked in
      * tx: n+3 - ty: n+4 - tz: n+5
      */
-    for(plint i=0;i<6*x_.size();i++)
-      sumId.push_back(this->getStatistics().subscribeSum());
   }
 
   template<typename T, template<typename U> class Descriptor>
   SumForceTorque3D<T,Descriptor>::SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig)
-    : ReductiveBoxProcessingFunctional3D_L<T,Descriptor>(orig),
-      sumId(orig.sumId), x(orig.x), partId(orig.partId) {}
+    : BoxProcessingFunctional3D_L<T,Descriptor>(orig), x(orig.x),
+      force(orig.force), torque(orig.torque) {}
   
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
@@ -228,27 +227,12 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addForce(plint partId, plint coord, T value)
   {
-    plint which = sumId[6*(partId)+coord];
-    this->getStatistics().gatherSum(which,value);
+    force[3*partId+coord] += value;
   }
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addTorque(plint partId, plint coord, T value)
   {
-    plint which = sumId[6*(partId)+coord+3];
-    this->getStatistics().gatherSum(which,value);
-  }
-
-  template<typename T, template<typename U> class Descriptor>
-  double SumForceTorque3D<T,Descriptor>::getForce(plint partId, plint coord)
-  {
-    plint which = sumId[6*(partId)+coord];
-    return this->getStatistics().getSum(which);
-  }
-  template<typename T, template<typename U> class Descriptor>
-  double SumForceTorque3D<T,Descriptor>::getTorque(plint partId, plint coord)
-  {
-    plint which = sumId[6*(partId)+coord+3];
-    return this->getStatistics().getSum(which);
+    torque[3*partId+coord] += value;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -465,19 +449,41 @@ namespace plb{
       x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.x[iPart][0]),
                                   units.getLbLength(wrapper.x[iPart][1]),
                                   units.getLbLength(wrapper.x[iPart][2]) ) );
-
-    SumForceTorque3D<T,Descriptor> sft(x_lb);
+    
+    plint const n_force = wrapper.getNumParticles()*3;
+    
+    double *force = new T[n_force];
+    double *torque = new T[n_force];
+    double *force_tmp = new T[n_force];
+    double *torque_tmp = new T[n_force];
+    
+    for(plint i=0;i<n_force;i++){
+      force_tmp[i] = 0;
+      torque_tmp[i] = 0;
+    }
+ 
+    SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,force_tmp,torque_tmp);
     
     applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
     
+    MPI_Reduce(force_tmp, force, n_force, MPI_DOUBLE, MPI_SUM, 0, global::mpi().getGlobalCommunicator());
+    MPI_Reduce(torque_tmp, torque, n_force, MPI_DOUBLE, MPI_SUM, 0, global::mpi().getGlobalCommunicator());
+
+    MPI_Bcast(force,n_force,MPI_DOUBLE,0,global::mpi().getGlobalCommunicator());
+    MPI_Bcast(torque,n_force,MPI_DOUBLE,0,global::mpi().getGlobalCommunicator());
+
     T const nProc = (T) global::mpi().getSize();
     for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++){
       for(int i=0;i<3;i++){
-        wrapper.f[iPart][i] = units.getPhysForce(sft.getForce(iPart,i))/nProc;
-        wrapper.t[iPart][i] = units.getPhysTorque(sft.getTorque(iPart,i))/nProc;
+        wrapper.f[iPart][i] = units.getPhysForce(force[3*iPart+i])/nProc;
+        wrapper.t[iPart][i] = units.getPhysTorque(torque[3*iPart+i])/nProc;
         // division grudge because of double MPI_allreduce
       }
     }
+    
+    
+    delete[] force;
+    delete[] torque;
   }
   
 };

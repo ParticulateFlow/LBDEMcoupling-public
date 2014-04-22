@@ -76,9 +76,10 @@ namespace plb{
                             PhysUnits3D<T> const &units);
   
   template<typename T, template<typename U> class Descriptor>
-  struct SumForceTorque3D : public ReductiveBoxProcessingFunctional3D_L<T,Descriptor> {
+  struct SumForceTorque3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
-    SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x);
+    SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x,
+                     T *force_, T *torque_);
     SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig);
 
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
@@ -86,15 +87,9 @@ namespace plb{
     SumForceTorque3D<T,Descriptor>* clone() const;
     void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 
-    std::vector<double>& getForceTorque(){return this->getStatistics().getSumVect();}
-
-    double getForce(plint partId, plint coord);
-    double getTorque(plint partId, plint coord);
-
   private:
-    std::vector<plint> sumId;
     typename ParticleData<T>::ParticleDataArrayVector &x;
-    plint const *partId;
+    T *force,*torque;
     void addForce(plint partId, plint coord, T value);
     void addTorque(plint partId, plint coord, T value);
   };
