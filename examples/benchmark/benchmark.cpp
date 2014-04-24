@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
     const T vtkT = 100;
     const T logT = 0.0000001;
 
-    const plint maxSteps = 100;//units.getLbSteps(maxT);
+    const plint maxSteps = 10;//units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
