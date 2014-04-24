@@ -17,7 +17,9 @@ namespace plb {
     PhysUnits3D(T const l_p_, T const u_p_, T const nu_p_, T const lx_, T const ly_, T const lz_,
                 plint const N, T const uMax, T const rho_p_)
       : l_p(l_p_), u_p(u_p_), t_p(l_p_/u_p_), nu_p(nu_p_), lx(lx_), ly(ly_), lz(lz_), rho_p(rho_p_),
-      Re(l_p_*u_p_/nu_p_), param(uMax,Re,N,lx_/l_p_,ly_/l_p_,lz/l_p_) {}
+      Re(l_p_*u_p_/nu_p_), param(uMax,Re,N,lx_/l_p_,ly_/l_p_,lz/l_p_),
+      forceFactor(pow(param.getDeltaX(),4)/pow(param.getDeltaT(),2) * rho_p * pow(l_p,4)/pow(t_p,2)),
+      torqueFactor(pow(param.getDeltaX(),5)/pow(param.getDeltaT(),2) * rho_p * pow(l_p,5)/pow(t_p,2)) {}
 
     T getRe() const {return Re; };
 
@@ -37,10 +39,8 @@ namespace plb {
     T getPhysTime(T const lbTime) const { return lbTime*param.getDeltaT()*t_p; };
     T getPhysDensity(T const lbDensity) const { return lbDensity * rho_p; };
     T getPhysAccel(T const lbAccel) const { return lbAccel / getLbAccel(1.); };    
-    T getPhysForce(T const lbForce) const { return lbForce * pow(param.getDeltaX(),4)/pow(param.getDeltaT(),2)
-        * rho_p * pow(l_p,4)/pow(t_p,2); };
-    T getPhysTorque(T const lbTorque) const { return lbTorque * pow(param.getDeltaX(),5)/pow(param.getDeltaT(),2)
-        * rho_p * pow(l_p,5)/pow(t_p,2); };
+    T getPhysForce(T const lbForce) const { return lbForce * forceFactor; };
+    T getPhysTorque(T const lbTorque) const { return lbTorque * torqueFactor; };
     T getPhysPress(T const lbRho, T pOffset = 0) const { return (lbRho - 1.) / 3. * getPhysForce(1) 
         / pow(getPhysLength(1.),2) + pOffset; };
 
@@ -51,11 +51,11 @@ namespace plb {
     }
 
   private:
-    T l_p, u_p, t_p, nu_p;
-    T lx,ly,lz, rho_p;
-    T Re;
+    T const l_p, u_p, t_p, nu_p;
+    T const lx,ly,lz, rho_p;
+    T const Re;
     IncomprFlowParam<T> param;
-
+    T const forceFactor, torqueFactor;
   };
 
 };

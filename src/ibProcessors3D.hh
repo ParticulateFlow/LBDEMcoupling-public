@@ -466,11 +466,10 @@ namespace plb{
     
     applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
     
-    MPI_Reduce(force_tmp, force, n_force, MPI_DOUBLE, MPI_SUM, 0, global::mpi().getGlobalCommunicator());
-    MPI_Reduce(torque_tmp, torque, n_force, MPI_DOUBLE, MPI_SUM, 0, global::mpi().getGlobalCommunicator());
-
-    MPI_Bcast(force,n_force,MPI_DOUBLE,0,global::mpi().getGlobalCommunicator());
-    MPI_Bcast(torque,n_force,MPI_DOUBLE,0,global::mpi().getGlobalCommunicator());
+    MPI_Allreduce(force_tmp,force,n_force,MPI_DOUBLE,MPI_SUM,
+                  global::mpi().getGlobalCommunicator());
+    MPI_Allreduce(torque_tmp,torque,n_force,MPI_DOUBLE,MPI_SUM,
+                  global::mpi().getGlobalCommunicator());
 
     T const nProc = (T) global::mpi().getSize();
     for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++){

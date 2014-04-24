@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
     const T vtkT = 100;
     const T logT = 0.0000001;
 
-    const plint maxSteps = 100;//units.getLbSteps(maxT);
+    const plint maxSteps = 10;//units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
@@ -216,9 +216,9 @@ int main(int argc, char* argv[]) {
     wrapper.execFile("in2.lbdem");
     wrapper.execCommand("run 9 upto");
 
-    clock_t start = clock();    
-
-
+    clock_t start = clock();
+    clock_t loop = clock();
+    clock_t end = clock(); 
     // Loop over main time iteration.
     for (plint iT=0; iT<=maxSteps; ++iT) {
 
@@ -240,13 +240,20 @@ int main(int argc, char* argv[]) {
 
 
       if(iT%logSteps == 0){
-        clock_t end = clock();
-        T time = difftime(end,start)/((T)CLOCKS_PER_SEC);
+        end = clock();
+        T time = difftime(end,loop)/((T)CLOCKS_PER_SEC);
+        T totaltime = difftime(end,start)/((T)CLOCKS_PER_SEC);
         T mlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*logSteps))/time/1e6;
         pcout << "time: " << time << " " ;
-        pcout << "calculating at " << mlups << " MLU/s" << std::endl;
-        start = clock();
+        pcout << "calculating at " << mlups << " MLU/s"
+              << " | total time running: " << totaltime << std::endl;
+        loop = clock();
       }
     }
+    T totaltime = difftime(end,start)/((T)CLOCKS_PER_SEC);
+    T totalmlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*(maxSteps+1)))/totaltime/1e6;
+    pcout << " ********************** \n"
+          << "total time: " << totaltime
+          << " calculating at " << totalmlups << " MLU/s" << std::endl;
 
 }
