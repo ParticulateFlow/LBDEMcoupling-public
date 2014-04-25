@@ -37,6 +37,7 @@ core
 gmon.out
 log.*
 perf.*
+*.hpcstruct
 
 # collected bullsh*t
 examples/dragValidationLiggghts/u0*
