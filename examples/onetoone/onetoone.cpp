@@ -16,7 +16,8 @@
 #include "input.h"
 #include "library.h"
 #include "library_cfd_coupling.h"
-
+#include "comm.h"
+#include "atom.h"
 #include "periodicPressureFunctionals3D.h"
 #include "liggghtsCouplingWrapper.h"
 
@@ -99,6 +100,67 @@ void writeExternal(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint which, char
   ofile << *computeExternalScalar(lattice,which,domain);
 }
 
+
+class LatticeDecomposition {
+public:
+  LatticeDecomposition(plint nx_, plint ny_, plint nz_, LAMMPS_NS::LAMMPS *lmp_)
+    : nx(nx_),ny(ny_),nz(nz_),lmp(*lmp_),
+      blockStructure(0),threadAttribution(0)
+  {
+    npx = lmp.comm->procgrid[0];
+    npy = lmp.comm->procgrid[1];
+    npz = lmp.comm->procgrid[2];
+    for(plint i=0;i<=npx;i++)
+      xVal.push_back(round( lmp.comm->xsplit[i]*(T)nx ));
+    for(plint i=0;i<=npy;i++)
+      yVal.push_back(round( lmp.comm->ysplit[i]*(T)ny ));
+    for(plint i=0;i<=npz;i++)
+      zVal.push_back(round( lmp.comm->zsplit[i]*(T)nz ));
+
+    blockStructure = new SparseBlockStructure3D(Box3D(xVal[0], xVal.back()-1, 
+                                                yVal[0], yVal.back()-1, 
+                                                zVal[0], zVal.back()-1) );
+    
+    threadAttribution = new ExplicitThreadAttribution();
+
+    for (plint iX=0; iX<xVal.size()-1; ++iX) {
+      for (plint iY=0; iY<yVal.size()-1; ++iY) {
+        for (plint iZ=0; iZ<zVal.size()-1; ++iZ) {
+          plint id = blockStructure->nextIncrementalId();
+          blockStructure->addBlock (Box3D( xVal[iX], xVal[iX+1]-1, yVal[iY],
+                                           yVal[iY+1]-1, zVal[iZ], zVal[iZ+1]-1 ),
+                                id);
+          threadAttribution->addBlock(id,(plint)lmp.comm->grid2proc);
+        }
+      }
+    }
+    
+  }
+  
+  ~LatticeDecomposition()
+  {
+    if(blockStructure != 0) delete blockStructure;
+    if(threadAttribution != 0) delete threadAttribution;
+  }
+
+
+  SparseBlockStructure3D getBlockDistribution()
+  {
+    return SparseBlockStructure3D(*blockStructure);
+  }
+  ExplicitThreadAttribution* getThreadAttribution()
+  {
+    return new ExplicitThreadAttribution(*threadAttribution);
+  }
+private:
+  plint nx,ny,nz;
+  LAMMPS_NS::LAMMPS &lmp;
+  plint npx,npy,npz;
+  std::vector<plint> xVal, yVal, zVal;
+  SparseBlockStructure3D *blockStructure;
+  ExplicitThreadAttribution *threadAttribution;
+};
+
 int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
@@ -112,23 +174,11 @@ int main(int argc, char* argv[]) {
     std::string outDir;
     
     try {
-        global::argv(1).read(d_part);
-        global::argv(2).read(N);
-        global::argv(3).read(v_frac);
-        global::argv(4).read(nu_f);
-        global::argv(5).read(v_inf);
-        global::argv(6).read(uMax);
-        global::argv(7).read(outDir);
+        global::argv(1).read(N);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
-        pcout << "1 : d_part\n";
-        pcout << "2 : N per particle diameter\n";
-        pcout << "3 : particle volume fraction\n";
-        pcout << "4 : nu_fluid\n";
-        pcout << "5 : estimated v_inf\n";
-        pcout << "6 : uMax\n";
-        pcout << "7 : outDir\n";
+        pcout << "1 : N per particle diameter\n";
         exit(1);
     }
 
@@ -147,31 +197,30 @@ int main(int argc, char* argv[]) {
     wrapper.setVariable("r_part",d_part/2);
     wrapper.setVariable("v_frac",v_frac);
     
-    wrapper.execFile("in.lbdem");
-    wrapper.allocateVariables();
+    // domain.lbdem should set up everything until the create_box command
+    wrapper.execFile("domain.lbdem");
+    // pair.lbdem should contain pair style and integrate fix
+    wrapper.execFile("pair.lbdem");
+    // geom.lbdem contains all geometry definitions, stl imports, gravity, whatsoever
+    wrapper.execFile("geom.lbdem");
+    // ins.lbdem contains all insert commands
+    wrapper.execFile("ins.lbdem");
+    wrapper.run(1);
 
-    T g = 9.81;
-
-    const T lx = 1., ly = 1., lz = 2.;
-
-    wrapper.dataFromLiggghts();
-
-    T r_ = wrapper.r[0][0];
-    T rho_s = 1100.;
-    T m = r_*r_*r_*4./3.*3.14*rho_s;
-
-    // T v_inf_calc = 2.*(rho_s-rho_f)/rho_f*g*r_*r_/9./nu_f; // stokes
-    T v_inf_calc = sqrt(4./3.*0.44*(rho_s-rho_f)/rho_f*g*2.*r_); // something else
-
-    pcout << "v_inf: " << v_inf << " m: " << m << " r: " << r_ << std::endl;
+    // wrapper.allocateVariables();
     
-    PhysUnits3D<T> units(2.*r_,v_inf,nu_f,lx,ly,lz,N,uMax,rho_f);
+    PhysUnits3D<T> units(1.,1.,1.,1.,1.,1.,N,0.02,1.);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
+    LatticeDecomposition lDec(parameters.getNx(),parameters.getNy(),parameters.getNz(),
+                              wrapper.lmp);
+    
+    SparseBlockStructure3D blockStructure = lDec.getBlockDistribution();
+    ExplicitThreadAttribution* threadAttribution = lDec.getThreadAttribution();
     plint demSubsteps = 10;
     
-    const T maxT = ceil(3.*lz/v_inf);// (T)1.;
+    const T maxT = 1.;
     const T vtkT = 100;
     const T logT = 0.0000001;
 
@@ -192,9 +241,14 @@ int main(int argc, char* argv[]) {
           << "vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
 
-    MultiBlockLattice3D<T, DESCRIPTOR> lattice (nx,ny,nz, new DYNAMICS );
-
-
+    plint envelopeWidth = 1;
+    MultiBlockLattice3D<T, DESCRIPTOR> 
+      lattice (MultiBlockManagement3D (blockStructure, threadAttribution, envelopeWidth ),
+               defaultMultiBlockPolicy3D().getBlockCommunicator(),
+               defaultMultiBlockPolicy3D().getCombinedStatistics(),
+               defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
+               new DYNAMICS );
+    
     lattice.initialize();
 
     T dt_dem = dt_phys/(T)demSubsteps;
@@ -208,24 +262,30 @@ int main(int argc, char* argv[]) {
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
     wrapper.setVariable("dmp_dir",demOutDir);
 
-    // cmd << "variable dmp_dir string " << demOutDir;
-    // pcout << cmd.str() << std::endl;
-    // wrapper.execCommand(cmd);
-    // cmd.str("");
-
-    wrapper.execFile("in2.lbdem");
-    wrapper.execCommand("run 9 upto");
+    wrapper.execFile("ts_thermo_dmp.lbdem");
+    wrapper.runUpto(demSubsteps-1);
 
     clock_t start = clock();
     clock_t loop = clock();
     clock_t end = clock(); 
     // Loop over main time iteration.
     for (plint iT=0; iT<=maxSteps; ++iT) {
+      
+      plint nlocal = wrapper.lmp->atom->nlocal;
+      plint nghost = wrapper.lmp->atom->nghost;
+      std::cout << global::mpi().getRank() << " " << nlocal << " " << nghost << std::endl;
+      for(plint i=0;i<nlocal+nghost;i++)
+        std::cout << global::mpi().getRank() << " | "
+                  << i << " | "
+                  << wrapper.lmp->atom->x[i][0] << " "
+                  << wrapper.lmp->atom->x[i][1] << " "
+                  << wrapper.lmp->atom->x[i][2] << std::endl;
 
-      wrapper.dataFromLiggghts();
+
+      //wrapper.dataFromLiggghts();
 
       bool initWithVel = false;
-      setSpheresOnLattice(lattice,wrapper,units,initWithVel);
+      //setSpheresOnLattice(lattice,wrapper,units,initWithVel);
       
 
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
@@ -233,10 +293,10 @@ int main(int argc, char* argv[]) {
 
       lattice.collideAndStream();
 
-      getForcesFromLattice(lattice,wrapper,units);
+      //getForcesFromLattice(lattice,wrapper,units);
 
-      wrapper.dataToLiggghts();
-      wrapper.execCommand("run 10");
+      //wrapper.dataToLiggghts();
+      wrapper.run(demSubsteps);
 
 
       if(iT%logSteps == 0){
