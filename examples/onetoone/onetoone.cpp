@@ -11,6 +11,9 @@
 #include <sstream>
 #include <ctime>
 
+#include "periodicPressureFunctionals3D.h"
+#include "liggghtsCouplingWrapper.h"
+
 // necessary LAMMPS/LIGGGHTS includes
 #include "lammps.h"
 #include "input.h"
@@ -18,8 +21,8 @@
 #include "library_cfd_coupling.h"
 #include "comm.h"
 #include "atom.h"
-#include "periodicPressureFunctionals3D.h"
-#include "liggghtsCouplingWrapper.h"
+#include "modify.h"
+#include "fix_lb_coupling_onetoone.h"
 
 using namespace plb;
 using namespace std;
@@ -36,7 +39,7 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   T p_fact = units.getPhysForce(1)/pow(units.getPhysLength(1),2)/3.;
   
   std::string fname(createFileName("vtk", iter, 6));
-  
+
   VtkImageOutput3D<T> vtkOut(fname, units.getPhysLength(1));
   vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", units.getPhysVel(1));
   vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", units.getPhysVel(1));  
@@ -51,12 +54,6 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
                           "SolidFraction",1);
   vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
                           "PartId",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
-                          "fx",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
-                          "fy",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
-                          "fz",1);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -110,6 +107,7 @@ public:
     npx = lmp.comm->procgrid[0];
     npy = lmp.comm->procgrid[1];
     npz = lmp.comm->procgrid[2];
+
     for(plint i=0;i<=npx;i++)
       xVal.push_back(round( lmp.comm->xsplit[i]*(T)nx ));
     for(plint i=0;i<=npy;i++)
@@ -130,7 +128,7 @@ public:
           blockStructure->addBlock (Box3D( xVal[iX], xVal[iX+1]-1, yVal[iY],
                                            yVal[iY+1]-1, zVal[iZ], zVal[iZ+1]-1 ),
                                 id);
-          threadAttribution->addBlock(id,(plint)lmp.comm->grid2proc);
+          threadAttribution->addBlock(id,(plint)lmp.comm->grid2proc[iX][iY][iZ]);
         }
       }
     }
@@ -161,6 +159,85 @@ private:
   ExplicitThreadAttribution *threadAttribution;
 };
 
+void setSpheresOnLatticeNew(MultiBlockLattice3D<T,DESCRIPTOR> &lattice,
+                           LiggghtsCouplingWrapper &wrapper,
+                           PhysUnits3D<T> const &units,
+                           bool initVelFlag)
+{
+  plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
+  plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
+  std::cout << "sphere *** " << nPart << std::endl;
+  for(plint iS=0;iS<nPart;iS++){
+    T x[3],v[3],omega[3];
+    T r;
+    plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
+    
+    for(plint i=0;i<3;i++){
+      x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+      v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+      omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
+    }
+    r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
+    SetSingleSphere3D<T,DESCRIPTOR> *sss 
+      = new SetSingleSphere3D<T,DESCRIPTOR>(x,v,omega,r,id,initVelFlag);
+    Box3D sss_box = sss->getBoundingBox();
+    applyProcessingFunctional(sss,sss_box,lattice);
+  }
+
+  // this one returns modif::staticVariables and forces an update of those along processor
+  // boundaries
+  applyProcessingFunctional(new AttributeFunctional<T,DESCRIPTOR>(),lattice.getBoundingBox(),lattice);
+
+
+}
+
+void getForcesFromLatticeNew(MultiBlockLattice3D<T,DESCRIPTOR> &lattice,
+                             LiggghtsCouplingWrapper &wrapper,
+                             PhysUnits3D<T> const &units)
+{
+  typename ParticleData<T>::ParticleDataArrayVector x_lb;
+  plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
+  for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++)
+    x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
+                                units.getLbLength(wrapper.lmp->atom->x[iPart][1]),
+                                units.getLbLength(wrapper.lmp->atom->x[iPart][2]) ) );
+  
+  plint const n_force = nPart*3;
+  
+  double *force = new T[n_force];
+  double *torque = new T[n_force];
+  
+  for(plint i=0;i<n_force;i++){
+    force[i] = 0;
+    torque[i] = 0;
+  }
+ 
+  SumForceTorque3D<T,DESCRIPTOR> *sft = new SumForceTorque3D<T,DESCRIPTOR>(x_lb,force,torque);
+  
+  applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
+  
+  LAMMPS_NS::FixLbCouplingOnetoone 
+    *couplingFix 
+    = dynamic_cast<LAMMPS_NS::FixLbCouplingOnetoone*>(wrapper.lmp->modify->find_fix_style("couple/lb/onetoone",0));
+  
+  double **f_liggghts = couplingFix->get_force_ptr();
+  double **t_liggghts = couplingFix->get_torque_ptr();
+
+  for(plint iPart=0;iPart<nPart;iPart++){
+    for(int i=0;i<3;i++){
+      f_liggghts[iPart][i] = units.getPhysForce(force[3*iPart+i]);
+      t_liggghts[iPart][i] = units.getPhysTorque(torque[3*iPart+i]);
+    }
+    std::cout << std::endl;
+  }
+  couplingFix->comm_force_torque();
+
+  delete[] force;
+  delete[] torque;
+}
+  
+
+
 int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
@@ -169,16 +246,16 @@ int main(int argc, char* argv[]) {
 
     plint N;
     
-    T nu_f,d_part,v_frac, v_inf;
-
     std::string outDir;
     
     try {
         global::argv(1).read(N);
+        global::argv(2).read(outDir);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
         pcout << "1 : N per particle diameter\n";
+        pcout << "2 : outdir\n";
         exit(1);
     }
 
@@ -187,6 +264,7 @@ int main(int argc, char* argv[]) {
     global::directories().setOutputDir(lbOutDir);
 
     const T rho_f = 1000;
+    const T nu_f = 1;
 
     char **argv_lmp = 0;
     argv_lmp = new char*[1];
@@ -194,9 +272,7 @@ int main(int argc, char* argv[]) {
 
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
     
-    wrapper.setVariable("r_part",d_part/2);
-    wrapper.setVariable("v_frac",v_frac);
-    
+
     // domain.lbdem should set up everything until the create_box command
     wrapper.execFile("domain.lbdem");
     // pair.lbdem should contain pair style and integrate fix
@@ -207,9 +283,9 @@ int main(int argc, char* argv[]) {
     wrapper.execFile("ins.lbdem");
     wrapper.run(1);
 
-    // wrapper.allocateVariables();
     
-    PhysUnits3D<T> units(1.,1.,1.,1.,1.,1.,N,0.02,1.);
+
+    PhysUnits3D<T> units(1.,1.,nu_f,1.,1.,1.,N,0.02,rho_f);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
@@ -220,11 +296,11 @@ int main(int argc, char* argv[]) {
     ExplicitThreadAttribution* threadAttribution = lDec.getThreadAttribution();
     plint demSubsteps = 10;
     
-    const T maxT = 1.;
-    const T vtkT = 100;
+    const T maxT = 3;
+    const T vtkT = 0.01;
     const T logT = 0.0000001;
 
-    const plint maxSteps = 10;//units.getLbSteps(maxT);
+    const plint maxSteps = units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
@@ -236,7 +312,6 @@ int main(int argc, char* argv[]) {
     pcout << "omega: " << parameters.getOmega() << "\n" 
           << "dt_phys: " << dt_phys << "\n"
           << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
-          << "v_inf: " << v_inf << "\n"
           << "Re : " << parameters.getRe() << "\n"
           << "vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
@@ -253,10 +328,6 @@ int main(int argc, char* argv[]) {
 
     T dt_dem = dt_phys/(T)demSubsteps;
     std::stringstream cmd;
-    // cmd << "variable t_step equal " << dt_dem;
-    // pcout << cmd.str() << std::endl;
-    // wrapper.execCommand(cmd);
-    // cmd.str("");
 
     wrapper.setVariable("t_step",dt_dem);
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
@@ -270,30 +341,20 @@ int main(int argc, char* argv[]) {
     clock_t end = clock(); 
     // Loop over main time iteration.
     for (plint iT=0; iT<=maxSteps; ++iT) {
-      
-      plint nlocal = wrapper.lmp->atom->nlocal;
-      plint nghost = wrapper.lmp->atom->nghost;
-      std::cout << global::mpi().getRank() << " " << nlocal << " " << nghost << std::endl;
-      for(plint i=0;i<nlocal+nghost;i++)
-        std::cout << global::mpi().getRank() << " | "
-                  << i << " | "
-                  << wrapper.lmp->atom->x[i][0] << " "
-                  << wrapper.lmp->atom->x[i][1] << " "
-                  << wrapper.lmp->atom->x[i][2] << std::endl;
-
+      plint i=1;
+      plint r=global::mpi().getRank();
 
       //wrapper.dataFromLiggghts();
 
       bool initWithVel = false;
-      //setSpheresOnLattice(lattice,wrapper,units,initWithVel);
-      
+      setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);      
 
-      if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
-        writeVTK(lattice,parameters,units,iT);
+      // if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
+      //   writeVTK(lattice,parameters,units,iT);
 
       lattice.collideAndStream();
 
-      //getForcesFromLattice(lattice,wrapper,units);
+      getForcesFromLatticeNew(lattice,wrapper,units);
 
       //wrapper.dataToLiggghts();
       wrapper.run(demSubsteps);

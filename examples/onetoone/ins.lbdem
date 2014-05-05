@@ -1,6 +1,11 @@
-create_atoms 1 single 0.5 0.5 0.75
-create_atoms 1 single 0.5 0.5 0.55
-create_atoms 1 single 0.5 0.5 0.25
+create_atoms 1 single 0.5 0.5 0.57
+#create_atoms 1 single 0.5 0.5 0.55
+#create_atoms 1 single 0.5 0.5 0.25
 
-set group all diameter 0.1 density 1
+#velocity all set 0. 0. -1.
+
+
+set group all diameter 0.1 density 5000
+
+
 

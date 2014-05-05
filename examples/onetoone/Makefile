@@ -24,7 +24,7 @@ optimize     = true
 # Set debug mode and debug flags on/off
 debug        = false
 # Set profiling flags on/off
-profile      = true
+profile      = false
 # Set MPI-parallel mode on/off (parallelism in cluster-like environment)
 MPIparallel  = true
 # Set SMP-parallel mode on/off (shared-memory parallelism)

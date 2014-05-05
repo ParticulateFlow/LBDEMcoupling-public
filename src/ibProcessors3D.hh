@@ -187,24 +187,34 @@ namespace plb{
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+          plint i=1;
+          plint r=global::mpi().getRank();
+          
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
-                    
+
           // LIGGGHTS indices start at 1
           plint id = (plint) *(cell.getExternal(partId))-1;
           if(id < 0) continue; // no particle here
-          
+          // std::cout << r << " : " << iX << " " << iY << " " << iZ << std::endl;
+          // std::cout << r << " | " << i++ << std::endl;
+
           T xGlobal = (T) (relativePosition.x + iX);
           T yGlobal = (T) (relativePosition.y + iY);
           T zGlobal = (T) (relativePosition.z + iZ);
+
+          // std::cout << r << " | " << i++ << std::endl;
           
           T forceX = (*(cell.getExternal(fx)));
           T forceY = (*(cell.getExternal(fy)));
           T forceZ = (*(cell.getExternal(fz)));
+
+          // std::cout << r << " | " << i++ << std::endl;
         
           addForce(id,0,forceX);
           addForce(id,1,forceY);
           addForce(id,2,forceZ);
 
+          // std::cout << r << " | " << i++ << std::endl;
           // TODO: get torque evaluation right for periodic boundary conditions
           T dx = xGlobal - x[id][0];
           T dy = yGlobal - x[id][1];
@@ -219,6 +229,7 @@ namespace plb{
           addTorque(id,1,-dx*forceZ + dz*forceX);
           addTorque(id,2,dx*forceY - dy*forceX);
 
+          // std::cout << r << " | " << i << std::endl;
         }
       }
     }
