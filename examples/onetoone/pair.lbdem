@@ -21,4 +21,3 @@ fix		nve all nve/sphere
 # lb coupling fix
 fix lbcoupling all couple/lb/onetoone
 
-#fix grav all gravity 500 vector 0 0 -1 

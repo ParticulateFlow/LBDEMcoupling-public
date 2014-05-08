@@ -8,6 +8,8 @@ communicate	single vel yes
 boundary	f f f
 newton		off
 
-processors 1 1 *
+processors      * * 1
 region		box block 0. 1. 0. 1. 0. 1. units box
 create_box	1 box
+
+lattice sc 1.

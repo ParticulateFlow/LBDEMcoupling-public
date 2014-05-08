@@ -3,6 +3,10 @@
  */
 
 #include "ibDef.h"
+#include "lammps.h"
+#include "atom.h"
+#include "modify.h"
+#include "fix_lb_coupling_onetoone.h"
 
 namespace plb{
 
@@ -155,22 +159,14 @@ namespace plb{
   /* --------------------------------------------- */
   template<typename T, template<typename U> class Descriptor>
   SumForceTorque3D<T,Descriptor>::SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x_,
-                                                   T *force_, T *torque_)
-    : x(x_), force(force_), torque(torque_)
-  {
-    
-    /*
-     * convention: for particle with id n, the forces are tracked in 
-     * fx: n - fy: n+1 - fz: n+2
-     * and the torques are tracked in
-     * tx: n+3 - ty: n+4 - tz: n+5
-     */
-  }
+                                                   T *force_, T *torque_, LiggghtsCouplingWrapper &wrapper_)
+    : x(x_), force(force_), torque(torque_), wrapper(wrapper_)
+  {}
 
   template<typename T, template<typename U> class Descriptor>
   SumForceTorque3D<T,Descriptor>::SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig)
     : BoxProcessingFunctional3D_L<T,Descriptor>(orig), x(orig.x),
-      force(orig.force), torque(orig.torque) {}
+      force(orig.force), torque(orig.torque), wrapper(orig.wrapper) {}
   
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
@@ -184,56 +180,52 @@ namespace plb{
     
     plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
 
+    plint r=global::mpi().getRank();
+    
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           plint i=1;
-          plint r=global::mpi().getRank();
           
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
-
+          
           // LIGGGHTS indices start at 1
-          plint id = (plint) *(cell.getExternal(partId))-1;
-          if(id < 0) continue; // no particle here
-          // std::cout << r << " : " << iX << " " << iY << " " << iZ << std::endl;
-          // std::cout << r << " | " << i++ << std::endl;
+          plint id = (plint) round(*(cell.getExternal(partId)));
 
+          if(id < 1) continue; // no particle here
+          plint ind = wrapper.lmp->atom->map(id);
+          
           T xGlobal = (T) (relativePosition.x + iX);
           T yGlobal = (T) (relativePosition.y + iY);
           T zGlobal = (T) (relativePosition.z + iZ);
-
-          // std::cout << r << " | " << i++ << std::endl;
           
           T forceX = (*(cell.getExternal(fx)));
           T forceY = (*(cell.getExternal(fy)));
           T forceZ = (*(cell.getExternal(fz)));
-
-          // std::cout << r << " | " << i++ << std::endl;
-        
-          addForce(id,0,forceX);
-          addForce(id,1,forceY);
-          addForce(id,2,forceZ);
-
-          // std::cout << r << " | " << i++ << std::endl;
-          // TODO: get torque evaluation right for periodic boundary conditions
+          
+          addForce(ind,0,forceX);
+          addForce(ind,1,forceY);
+          addForce(ind,2,forceZ);
+          
+          //TODO: get torque evaluation right for periodic boundary conditions
           T dx = xGlobal - x[id][0];
           T dy = yGlobal - x[id][1];
           T dz = zGlobal - x[id][2];
-
+          
           // minimum image convention
           if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
           if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
           if(dz>nz/2) dz -= nz; if(dz<-nz/2) dz += nz;
-
-          addTorque(id,0,dy*forceZ - dz*forceY);
-          addTorque(id,1,-dx*forceZ + dz*forceX);
-          addTorque(id,2,dx*forceY - dy*forceX);
-
-          // std::cout << r << " | " << i << std::endl;
+          
+          addTorque(ind,0,dy*forceZ - dz*forceY);
+          addTorque(ind,1,-dx*forceZ + dz*forceX);
+          addTorque(ind,2,dx*forceY - dy*forceX);
+          
         }
       }
     }
   }
+        
 
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addForce(plint partId, plint coord, T value)
@@ -495,5 +487,88 @@ namespace plb{
     delete[] force;
     delete[] torque;
   }
+
+  template<typename T, template<typename U> class Descriptor>
+  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
+                              LiggghtsCouplingWrapper &wrapper,
+                              PhysUnits3D<T> const &units,
+                              bool initVelFlag)
+  {
+    plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
+    plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
+    for(plint iS=0;iS<nPart;iS++){
+      T x[3],v[3],omega[3];
+      T r;
+      plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
+
+      for(plint i=0;i<3;i++){
+        x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+        v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+        omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
+      }
+      r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
+      SetSingleSphere3D<T,Descriptor> *sss 
+        = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
+      Box3D sss_box = sss->getBoundingBox();
+      applyProcessingFunctional(sss,sss_box,lattice);
+    }
+
+    // this one returns modif::staticVariables and forces an update of those along processor
+    // boundaries
+    applyProcessingFunctional(new AttributeFunctional<T,Descriptor>(),lattice.getBoundingBox(),lattice);
+
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void getForcesFromLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
+                               LiggghtsCouplingWrapper &wrapper,
+                               PhysUnits3D<T> const &units)
+  {
+    plint r = global::mpi().getRank();
+    plint iii=1;
+
+    typename ParticleData<T>::ParticleDataArrayVector x_lb;
+    plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
+
+    for(plint iPart=0;iPart<nPart;iPart++)
+      x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
+                                  units.getLbLength(wrapper.lmp->atom->x[iPart][1]),
+                                  units.getLbLength(wrapper.lmp->atom->x[iPart][2]) ) );
+    
+
+    plint const n_force = nPart*3;
+  
+    double *force = new T[n_force];
+    double *torque = new T[n_force];
+
+    for(plint i=0;i<n_force;i++){
+      force[i] = 0;
+      torque[i] = 0;
+    }
+ 
+    SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,force,torque,wrapper);
+
+    applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
+
+    LAMMPS_NS::FixLbCouplingOnetoone 
+      *couplingFix 
+      = dynamic_cast<LAMMPS_NS::FixLbCouplingOnetoone*>(wrapper.lmp->modify->find_fix_style("couple/lb/onetoone",0));
+    double **f_liggghts = couplingFix->get_force_ptr();
+    double **t_liggghts = couplingFix->get_torque_ptr();
+
+    for(plint iPart=0;iPart<nPart;iPart++){
+      int tag = wrapper.lmp->atom->tag[iPart];
+      int liggghts_ind = wrapper.lmp->atom->map(tag);
+      for(plint i=0;i<3;i++){
+        f_liggghts[liggghts_ind][i] = units.getPhysForce(force[3*iPart+i]);
+        t_liggghts[iPart][i] = units.getPhysTorque(torque[3*iPart+i]);
+      }
+    }
+    couplingFix->comm_force_torque();
+
+    delete[] force;
+    delete[] torque;
+}
+
   
 };

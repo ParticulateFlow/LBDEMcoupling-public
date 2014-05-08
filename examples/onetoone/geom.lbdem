@@ -1,5 +1,6 @@
 
-fix grav all gravity 0.0981 vector 0 0 -1
+fix grav all gravity 500 vector 0 0 -1 
+
 
 fix ywalls1 all wall/gran model hertz tangential history primitive type 1 xplane 0.
 fix ywalls2 all wall/gran model hertz tangential history primitive type 1 xplane 1.

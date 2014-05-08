@@ -24,6 +24,8 @@
 #include "modify.h"
 #include "fix_lb_coupling_onetoone.h"
 
+#include "latticeDecomposition.h"
+
 using namespace plb;
 using namespace std;
 
@@ -98,143 +100,6 @@ void writeExternal(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint which, char
 }
 
 
-class LatticeDecomposition {
-public:
-  LatticeDecomposition(plint nx_, plint ny_, plint nz_, LAMMPS_NS::LAMMPS *lmp_)
-    : nx(nx_),ny(ny_),nz(nz_),lmp(*lmp_),
-      blockStructure(0),threadAttribution(0)
-  {
-    npx = lmp.comm->procgrid[0];
-    npy = lmp.comm->procgrid[1];
-    npz = lmp.comm->procgrid[2];
-
-    for(plint i=0;i<=npx;i++)
-      xVal.push_back(round( lmp.comm->xsplit[i]*(T)nx ));
-    for(plint i=0;i<=npy;i++)
-      yVal.push_back(round( lmp.comm->ysplit[i]*(T)ny ));
-    for(plint i=0;i<=npz;i++)
-      zVal.push_back(round( lmp.comm->zsplit[i]*(T)nz ));
-
-    blockStructure = new SparseBlockStructure3D(Box3D(xVal[0], xVal.back()-1, 
-                                                yVal[0], yVal.back()-1, 
-                                                zVal[0], zVal.back()-1) );
-    
-    threadAttribution = new ExplicitThreadAttribution();
-
-    for (plint iX=0; iX<xVal.size()-1; ++iX) {
-      for (plint iY=0; iY<yVal.size()-1; ++iY) {
-        for (plint iZ=0; iZ<zVal.size()-1; ++iZ) {
-          plint id = blockStructure->nextIncrementalId();
-          blockStructure->addBlock (Box3D( xVal[iX], xVal[iX+1]-1, yVal[iY],
-                                           yVal[iY+1]-1, zVal[iZ], zVal[iZ+1]-1 ),
-                                id);
-          threadAttribution->addBlock(id,(plint)lmp.comm->grid2proc[iX][iY][iZ]);
-        }
-      }
-    }
-    
-  }
-  
-  ~LatticeDecomposition()
-  {
-    if(blockStructure != 0) delete blockStructure;
-    if(threadAttribution != 0) delete threadAttribution;
-  }
-
-
-  SparseBlockStructure3D getBlockDistribution()
-  {
-    return SparseBlockStructure3D(*blockStructure);
-  }
-  ExplicitThreadAttribution* getThreadAttribution()
-  {
-    return new ExplicitThreadAttribution(*threadAttribution);
-  }
-private:
-  plint nx,ny,nz;
-  LAMMPS_NS::LAMMPS &lmp;
-  plint npx,npy,npz;
-  std::vector<plint> xVal, yVal, zVal;
-  SparseBlockStructure3D *blockStructure;
-  ExplicitThreadAttribution *threadAttribution;
-};
-
-void setSpheresOnLatticeNew(MultiBlockLattice3D<T,DESCRIPTOR> &lattice,
-                           LiggghtsCouplingWrapper &wrapper,
-                           PhysUnits3D<T> const &units,
-                           bool initVelFlag)
-{
-  plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
-  plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
-  std::cout << "sphere *** " << nPart << std::endl;
-  for(plint iS=0;iS<nPart;iS++){
-    T x[3],v[3],omega[3];
-    T r;
-    plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
-    
-    for(plint i=0;i<3;i++){
-      x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
-      v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
-      omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
-    }
-    r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-    SetSingleSphere3D<T,DESCRIPTOR> *sss 
-      = new SetSingleSphere3D<T,DESCRIPTOR>(x,v,omega,r,id,initVelFlag);
-    Box3D sss_box = sss->getBoundingBox();
-    applyProcessingFunctional(sss,sss_box,lattice);
-  }
-
-  // this one returns modif::staticVariables and forces an update of those along processor
-  // boundaries
-  applyProcessingFunctional(new AttributeFunctional<T,DESCRIPTOR>(),lattice.getBoundingBox(),lattice);
-
-
-}
-
-void getForcesFromLatticeNew(MultiBlockLattice3D<T,DESCRIPTOR> &lattice,
-                             LiggghtsCouplingWrapper &wrapper,
-                             PhysUnits3D<T> const &units)
-{
-  typename ParticleData<T>::ParticleDataArrayVector x_lb;
-  plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
-  for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++)
-    x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
-                                units.getLbLength(wrapper.lmp->atom->x[iPart][1]),
-                                units.getLbLength(wrapper.lmp->atom->x[iPart][2]) ) );
-  
-  plint const n_force = nPart*3;
-  
-  double *force = new T[n_force];
-  double *torque = new T[n_force];
-  
-  for(plint i=0;i<n_force;i++){
-    force[i] = 0;
-    torque[i] = 0;
-  }
- 
-  SumForceTorque3D<T,DESCRIPTOR> *sft = new SumForceTorque3D<T,DESCRIPTOR>(x_lb,force,torque);
-  
-  applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
-  
-  LAMMPS_NS::FixLbCouplingOnetoone 
-    *couplingFix 
-    = dynamic_cast<LAMMPS_NS::FixLbCouplingOnetoone*>(wrapper.lmp->modify->find_fix_style("couple/lb/onetoone",0));
-  
-  double **f_liggghts = couplingFix->get_force_ptr();
-  double **t_liggghts = couplingFix->get_torque_ptr();
-
-  for(plint iPart=0;iPart<nPart;iPart++){
-    for(int i=0;i<3;i++){
-      f_liggghts[iPart][i] = units.getPhysForce(force[3*iPart+i]);
-      t_liggghts[iPart][i] = units.getPhysTorque(torque[3*iPart+i]);
-    }
-    std::cout << std::endl;
-  }
-  couplingFix->comm_force_torque();
-
-  delete[] force;
-  delete[] torque;
-}
   
 
 
@@ -297,10 +162,10 @@ int main(int argc, char* argv[]) {
     plint demSubsteps = 10;
     
     const T maxT = 3;
-    const T vtkT = 0.01;
+    const T vtkT = 1000;//0.01;
     const T logT = 0.0000001;
 
-    const plint maxSteps = units.getLbSteps(maxT);
+    const plint maxSteps = 100;//units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
@@ -349,11 +214,12 @@ int main(int argc, char* argv[]) {
       bool initWithVel = false;
       setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);      
 
-      // if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
-      //   writeVTK(lattice,parameters,units,iT);
+      if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
+        writeVTK(lattice,parameters,units,iT);
 
       lattice.collideAndStream();
-
+      // std::cout << "feval step " << iT << std::endl;
+      
       getForcesFromLatticeNew(lattice,wrapper,units);
 
       //wrapper.dataToLiggghts();

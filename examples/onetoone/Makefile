@@ -17,14 +17,14 @@
 # Leading directory of the Palabos source code
 palabosRoot  = ${PALABOS_ROOT}
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = onetoone.cpp ${LBDEM_ROOT}/src/liggghtsCouplingWrapper.cpp
+projectFiles = onetoone.cpp ${LBDEM_ROOT}/src/liggghtsCouplingWrapper.cpp ${LBDEM_ROOT}/src/latticeDecomposition.cpp
 
 # Set optimization flags on/off
 optimize     = true
 # Set debug mode and debug flags on/off
 debug        = false
 # Set profiling flags on/off
-profile      = false
+profile      = true
 # Set MPI-parallel mode on/off (parallelism in cluster-like environment)
 MPIparallel  = true
 # Set SMP-parallel mode on/off (shared-memory parallelism)

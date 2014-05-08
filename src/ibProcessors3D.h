@@ -74,12 +74,23 @@ namespace plb{
   void getForcesFromLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
                             LiggghtsCouplingWrapper &wrapper,
                             PhysUnits3D<T> const &units);
-  
+
+  template<typename T, template<typename U> class Descriptor>
+  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
+                              LiggghtsCouplingWrapper &wrapper,
+                              PhysUnits3D<T> const &units,
+                              bool initVelFlag);
+
+  template<typename T, template<typename U> class Descriptor>
+  void getForcesFromLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
+                               LiggghtsCouplingWrapper &wrapper,
+                               PhysUnits3D<T> const &units);
+
   template<typename T, template<typename U> class Descriptor>
   struct SumForceTorque3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
     SumForceTorque3D(typename ParticleData<T>::ParticleDataArrayVector &x,
-                     T *force_, T *torque_);
+                     T *force_, T *torque_, LiggghtsCouplingWrapper &wrapper_);
     SumForceTorque3D(SumForceTorque3D<T,Descriptor> const &orig);
 
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
@@ -90,6 +101,7 @@ namespace plb{
   private:
     typename ParticleData<T>::ParticleDataArrayVector &x;
     T *force,*torque;
+    LiggghtsCouplingWrapper &wrapper;
     void addForce(plint partId, plint coord, T value);
     void addTorque(plint partId, plint coord, T value);
   };
