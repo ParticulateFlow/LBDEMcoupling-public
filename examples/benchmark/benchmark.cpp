@@ -17,8 +17,8 @@
 #include "library.h"
 #include "library_cfd_coupling.h"
 
-#include "periodicPressureFunctionals3D.h"
 #include "liggghtsCouplingWrapper.h"
+#include "latticeDecomposition.h"
 
 using namespace plb;
 using namespace std;
@@ -148,15 +148,14 @@ int main(int argc, char* argv[]) {
     wrapper.setVariable("v_frac",v_frac);
     
     wrapper.execFile("in.lbdem");
-    wrapper.allocateVariables();
+
 
     T g = 9.81;
 
     const T lx = 1., ly = 1., lz = 2.;
 
-    wrapper.dataFromLiggghts();
 
-    T r_ = wrapper.r[0][0];
+    T r_ = d_part/2.;
     T rho_s = 1100.;
     T m = r_*r_*r_*4./3.*3.14*rho_s;
 
@@ -169,6 +168,12 @@ int main(int argc, char* argv[]) {
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
+
+    LatticeDecomposition lDec(parameters.getNx(),parameters.getNy(),parameters.getNz(),
+                              wrapper.lmp);
+    
+    SparseBlockStructure3D blockStructure = lDec.getBlockDistribution();
+    ExplicitThreadAttribution* threadAttribution = lDec.getThreadAttribution();
     plint demSubsteps = 10;
     
     const T maxT = ceil(3.*lz/v_inf);// (T)1.;
@@ -198,23 +203,14 @@ int main(int argc, char* argv[]) {
     lattice.initialize();
 
     T dt_dem = dt_phys/(T)demSubsteps;
-    std::stringstream cmd;
-    // cmd << "variable t_step equal " << dt_dem;
-    // pcout << cmd.str() << std::endl;
-    // wrapper.execCommand(cmd);
-    // cmd.str("");
 
     wrapper.setVariable("t_step",dt_dem);
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
     wrapper.setVariable("dmp_dir",demOutDir);
 
-    // cmd << "variable dmp_dir string " << demOutDir;
-    // pcout << cmd.str() << std::endl;
-    // wrapper.execCommand(cmd);
-    // cmd.str("");
 
     wrapper.execFile("in2.lbdem");
-    wrapper.execCommand("run 9 upto");
+    wrapper.runUpto(demSubsteps-1);
 
     clock_t start = clock();
     clock_t loop = clock();
@@ -222,10 +218,8 @@ int main(int argc, char* argv[]) {
     // Loop over main time iteration.
     for (plint iT=0; iT<=maxSteps; ++iT) {
 
-      wrapper.dataFromLiggghts();
-
       bool initWithVel = false;
-      setSpheresOnLattice(lattice,wrapper,units,initWithVel);
+      setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);
       
 
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
@@ -233,10 +227,9 @@ int main(int argc, char* argv[]) {
 
       lattice.collideAndStream();
 
-      getForcesFromLattice(lattice,wrapper,units);
+      getForcesFromLatticeNew(lattice,wrapper,units);
 
-      wrapper.dataToLiggghts();
-      wrapper.execCommand("run 10");
+      wrapper.run(demSubsteps);
 
 
       if(iT%logSteps == 0){

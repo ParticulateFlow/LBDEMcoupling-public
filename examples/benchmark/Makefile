@@ -17,7 +17,7 @@
 # Leading directory of the Palabos source code
 palabosRoot  = ${PALABOS_ROOT}
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = benchmark.cpp
+projectFiles = benchmark.cpp ${LBDEM_ROOT}/src/liggghtsCouplingWrapper.cpp ${LBDEM_ROOT}/src/latticeDecomposition.cpp
 
 # Set optimization flags on/off
 optimize     = true
