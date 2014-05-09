@@ -185,10 +185,8 @@ namespace plb{
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-          plint i=1;
           
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
-          
           // LIGGGHTS indices start at 1
           plint id = (plint) round(*(cell.getExternal(partId)));
 
@@ -208,14 +206,14 @@ namespace plb{
           addForce(ind,2,forceZ);
           
           //TODO: get torque evaluation right for periodic boundary conditions
-          T dx = xGlobal - x[id][0];
-          T dy = yGlobal - x[id][1];
-          T dz = zGlobal - x[id][2];
+          T dx = xGlobal - x[ind][0];
+          T dy = yGlobal - x[ind][1];
+          T dz = zGlobal - x[ind][2];
           
           // minimum image convention
-          if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
-          if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
-          if(dz>nz/2) dz -= nz; if(dz<-nz/2) dz += nz;
+          // if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
+          // if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
+          // if(dz>nz/2) dz -= nz; if(dz<-nz/2) dz += nz;
           
           addTorque(ind,0,dy*forceZ - dz*forceY);
           addTorque(ind,1,-dx*forceZ + dz*forceX);
@@ -559,7 +557,7 @@ namespace plb{
         torque[i] = 0;
       }
     }
- 
+
     SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,
                                                                              &force.front(),&torque.front(),
                                                                              wrapper);

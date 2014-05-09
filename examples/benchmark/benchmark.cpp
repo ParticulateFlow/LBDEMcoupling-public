@@ -197,7 +197,13 @@ int main(int argc, char* argv[]) {
           << "vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
 
-    MultiBlockLattice3D<T, DESCRIPTOR> lattice (nx,ny,nz, new DYNAMICS );
+    plint envelopeWidth = 1;
+    MultiBlockLattice3D<T, DESCRIPTOR> 
+      lattice (MultiBlockManagement3D (blockStructure, threadAttribution, envelopeWidth ),
+               defaultMultiBlockPolicy3D().getBlockCommunicator(),
+               defaultMultiBlockPolicy3D().getCombinedStatistics(),
+               defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
+               new DYNAMICS );
 
 
     lattice.initialize();
