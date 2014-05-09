@@ -37,7 +37,7 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   std::string fname(createFileName("vtk", iter, 6));
   
   VtkImageOutput3D<T> vtkOut(fname, units.getPhysLength(1));
-  vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", units.getPhysVel(1));
+  // vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", units.getPhysVel(1));
   vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", units.getPhysVel(1));  
   vtkOut.writeData<float>(*computeDensity(lattice), "density",units.getPhysDensity(1)); 
   
@@ -48,14 +48,14 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
  
   vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
                           "SolidFraction",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
-                          "PartId",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
-                          "fx",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
-                          "fy",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
-                          "fz",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
+  //                         "PartId",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
+  //                         "fx",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
+  //                         "fy",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
+  //                         "fz",1);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -180,8 +180,8 @@ int main(int argc, char* argv[]) {
     const T vtkT = 100;
     const T logT = 0.0000001;
 
-    const plint maxSteps = 10;//units.getLbSteps(maxT);
-    const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
+    const plint maxSteps = 50;//units.getLbSteps(maxT);
+    const plint vtkSteps = 5;//max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
     writeLogFile(parameters, "rect channel showcase");

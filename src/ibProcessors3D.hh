@@ -492,8 +492,14 @@ namespace plb{
                               PhysUnits3D<T> const &units,
                               bool initVelFlag)
   {
+    // this relies on the fact that there is exactly one block on each lattice
+    plint iBlock = lattice.getLocalInfo().getBlocks()[0];
+    std::map<plint,Box3D> blockmap = lattice.getSparseBlockStructure().getBulks();
+    Box3D localBB = blockmap[iBlock];
+
     plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
     plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
+
     for(plint iS=0;iS<nPart;iS++){
       T x[3],v[3],omega[3];
       T r;
@@ -508,6 +514,14 @@ namespace plb{
       SetSingleSphere3D<T,Descriptor> *sss 
         = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
       Box3D sss_box = sss->getBoundingBox();
+      
+      // only go over part that lies on local processor
+      // to avoid unnecessary communication overhead
+      // Box3D sss_box_intersect;
+      // bool boxes_intersect = intersect(sss_box_intersect,localBB,sss_box);
+      // if(boxes_intersect)
+      //   applyProcessingFunctional(sss,sss_box_intersect,lattice);
+
       applyProcessingFunctional(sss,sss_box,lattice);
     }
 
@@ -524,7 +538,6 @@ namespace plb{
   {
     // debug stuff
     plint r = global::mpi().getRank();
-    plint iii=1;
 
     static std::vector<T> force,torque;
 
@@ -562,7 +575,23 @@ namespace plb{
                                                                              &force.front(),&torque.front(),
                                                                              wrapper);
 
-    applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
+    // this relies on the fact that there is exactly one block on each lattice
+    plint iBlock = lattice.getLocalInfo().getBlocks()[0];
+    std::map<plint,Box3D> blockmap = lattice.getSparseBlockStructure().getBulks();
+    Box3D localBB = blockmap[iBlock];
+    applyProcessingFunctional(sft,localBB, lattice);
+
+    // // experimental....
+    // SparseBlockStructure3D sparseBlock = lattice.getSparseBlockStructure();
+    // std::vector<Box3D> boxVec;
+    // std::vector<plint> localBlocks = lattice.getLocalInfo().getBlocks();
+    // sparseBlock.intersect(lattice.getBoundingBox(),localBlocks,boxVec);
+    // std::cout << r << " boxvec " << boxVec.size() << std::endl;
+    // for(plint i=0;i<boxVec.size();i++)
+    //   applyProcessingFunctional(sft,boxVec[i],lattice);
+    
+    // // basic version with complete lattice
+    // applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
 
     LAMMPS_NS::FixLbCouplingOnetoone 
       *couplingFix 
