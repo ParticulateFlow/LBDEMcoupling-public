@@ -524,11 +524,15 @@ namespace plb{
                                LiggghtsCouplingWrapper &wrapper,
                                PhysUnits3D<T> const &units)
   {
+    // debug stuff
     plint r = global::mpi().getRank();
     plint iii=1;
 
-    typename ParticleData<T>::ParticleDataArrayVector x_lb;
+    static std::vector<T> force,torque;
+
     plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
+
+    typename ParticleData<T>::ParticleDataArrayVector x_lb;
 
     for(plint iPart=0;iPart<nPart;iPart++)
       x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
@@ -537,22 +541,36 @@ namespace plb{
     
 
     plint const n_force = nPart*3;
-  
-    double *force = new T[n_force];
-    double *torque = new T[n_force];
 
-    for(plint i=0;i<n_force;i++){
-      force[i] = 0;
-      torque[i] = 0;
+    if(n_force == 0) return; // no particles - no work
+
+    if(n_force > force.size()){
+      for(plint i=0;i<force.size();i++){
+        force[i] = 0;
+        torque[i] = 0;
+      }
+      for(plint i=force.size();i<n_force;i++){
+        force.push_back(0.);
+        torque.push_back(0.);
+      }
+    } else {
+      for(plint i=0;i<n_force;i++){
+        force[i] = 0;
+        torque[i] = 0;
+      }
     }
  
-    SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,force,torque,wrapper);
+    SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,
+                                                                             &force.front(),&torque.front(),
+                                                                             wrapper);
 
     applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
 
     LAMMPS_NS::FixLbCouplingOnetoone 
       *couplingFix 
-      = dynamic_cast<LAMMPS_NS::FixLbCouplingOnetoone*>(wrapper.lmp->modify->find_fix_style("couple/lb/onetoone",0));
+      = dynamic_cast<LAMMPS_NS::FixLbCouplingOnetoone*>
+      (wrapper.lmp->modify->find_fix_style("couple/lb/onetoone",0));
+
     double **f_liggghts = couplingFix->get_force_ptr();
     double **t_liggghts = couplingFix->get_torque_ptr();
 
@@ -566,9 +584,7 @@ namespace plb{
     }
     couplingFix->comm_force_torque();
 
-    delete[] force;
-    delete[] torque;
-}
+  }
 
   
 };
