@@ -177,11 +177,11 @@ int main(int argc, char* argv[]) {
     plint demSubsteps = 10;
     
     const T maxT = ceil(3.*lz/v_inf);// (T)1.;
-    const T vtkT = 100;
+    const T vtkT = 0.1;
     const T logT = 0.0000001;
 
-    const plint maxSteps = 50;//units.getLbSteps(maxT);
-    const plint vtkSteps = 5;//max<plint>(units.getLbSteps(vtkT),1);
+    const plint maxSteps = units.getLbSteps(maxT);
+    const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
     writeLogFile(parameters, "rect channel showcase");
@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
           << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
           << "v_inf: " << v_inf << "\n"
           << "Re : " << parameters.getRe() << "\n"
-          << "vtkSteps: " << vtkSteps << "\n"
+          << "vtkT: " << vtkT << " | vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
 
     plint envelopeWidth = 1;

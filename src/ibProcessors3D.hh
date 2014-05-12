@@ -492,6 +492,8 @@ namespace plb{
                               PhysUnits3D<T> const &units,
                               bool initVelFlag)
   {
+    plint r = global::mpi().getRank();
+
     // this relies on the fact that there is exactly one block on each lattice
     plint iBlock = lattice.getLocalInfo().getBlocks()[0];
     std::map<plint,Box3D> blockmap = lattice.getSparseBlockStructure().getBulks();
@@ -517,12 +519,17 @@ namespace plb{
       
       // only go over part that lies on local processor
       // to avoid unnecessary communication overhead
-      // Box3D sss_box_intersect;
-      // bool boxes_intersect = intersect(sss_box_intersect,localBB,sss_box);
-      // if(boxes_intersect)
-      //   applyProcessingFunctional(sss,sss_box_intersect,lattice);
+      Box3D sss_box_intersect;
+      bool boxes_intersect = intersect(sss_box,localBB,sss_box_intersect);
+      // std::cout << r << " intersect " << boxes_intersect << " "
+      //           << sss_box_intersect.x0 << " " << sss_box_intersect.x1 << " "
+      //           << sss_box_intersect.y0 << " " << sss_box_intersect.y1 << " "
+      //           << sss_box_intersect.z0 << " " << sss_box_intersect.z1 << " "
+      //           << std::endl;
+      if(boxes_intersect)
+        applyProcessingFunctional(sss,sss_box_intersect,lattice);
 
-      applyProcessingFunctional(sss,sss_box,lattice);
+      // applyProcessingFunctional(sss,sss_box,lattice);
     }
 
     // this one returns modif::staticVariables and forces an update of those along processor
