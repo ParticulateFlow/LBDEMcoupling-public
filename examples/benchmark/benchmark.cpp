@@ -138,10 +138,6 @@ int main(int argc, char* argv[]) {
 
     const T rho_f = 1000;
 
-    char **argv_lmp = 0;
-    argv_lmp = new char*[1];
-    argv_lmp[0] = argv[0];
-
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
     
     wrapper.setVariable("r_part",d_part/2);
