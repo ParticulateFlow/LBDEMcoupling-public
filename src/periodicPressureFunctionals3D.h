@@ -93,6 +93,18 @@ namespace plb {
     plint n,dimension;
   };
 
+  template<typename T>
+  class PoiseuilleProfileAndPressureGradient {
+  public:
+    PoiseuilleProfileAndPressureGradient(T pHi_, T pLo_,  T uMax, 
+                                         plint nx_, plint ny_, plint nz_, plint dimension_);
+    void operator() (plint iX, plint iY, plint iZ, T& density, Array<T,3>& velocity) const;
+  private:
+    T pHi,pLo,uMax;
+    plint nx,ny,nz,dimension;
+    T poiseuilleVelocity(T i, T n) const;
+  };
+
 }; /* namespace plb */
 
 #include "periodicPressureFunctionals3D.hh"

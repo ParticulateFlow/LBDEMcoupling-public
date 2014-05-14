@@ -11,14 +11,9 @@
 #include <sstream>
 #include <ctime>
 
-// necessary LAMMPS/LIGGGHTS includes
-#include "lammps.h"
-#include "input.h"
-#include "library.h"
-#include "library_cfd_coupling.h"
-
 #include "periodicPressureFunctionals3D.h"
 #include "liggghtsCouplingWrapper.h"
+#include "latticeDecomposition.h"
 
 using namespace plb;
 using namespace std;
@@ -135,13 +130,10 @@ int main(int argc, char* argv[]) {
 
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
     wrapper.execFile("in.lbdem");
-    wrapper.allocateVariables();
 
     const T nu_f = 1e-3;
 
     const T lx = 0.8, ly = 0.2, lz = 0.2;
-
-    wrapper.dataFromLiggghts();
 
     T gradP = deltaP/lz;
     T lx_eff = lx;//*(T)(N-1)/(T)N;
@@ -152,12 +144,25 @@ int main(int argc, char* argv[]) {
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
+    LatticeDecomposition lDec(parameters.getNx(),parameters.getNy(),parameters.getNz(),
+                              wrapper.lmp);
+    
+    SparseBlockStructure3D blockStructure = lDec.getBlockDistribution();
+    ExplicitThreadAttribution* threadAttribution = lDec.getThreadAttribution();
     plint demSubsteps = 10;
     
-    const T maxT = (T)5000.;
-    const T vtkT = 1.;
+    plint envelopeWidth = 1;
+    MultiBlockLattice3D<T, DESCRIPTOR> 
+      lattice (MultiBlockManagement3D (blockStructure, threadAttribution, envelopeWidth ),
+               defaultMultiBlockPolicy3D().getBlockCommunicator(),
+               defaultMultiBlockPolicy3D().getCombinedStatistics(),
+               defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
+               new DYNAMICS );
+
+    const T maxT = (T)100.;
+    const T vtkT = 0.1;
     const T gifT = 100;
-    const T logT = 0.02;
+    const T logT = 0.000000002;
 
     const plint maxSteps = units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
@@ -168,8 +173,6 @@ int main(int argc, char* argv[]) {
 
     plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
 
-    MultiBlockLattice3D<T, DESCRIPTOR> lattice (nx,ny,nz, new DYNAMICS );
-
     lattice.periodicity().toggle(0,true);
 
     Box3D inlet(0,0,1,ny-2,1,nz-2), outlet(nx-1,nx-1,1,ny-2,1,nz-2);
@@ -179,10 +182,13 @@ int main(int argc, char* argv[]) {
     // T rhoHi = 1.+0.5*deltaRho, rhoLo = 1.-0.5*deltaRho;
     T rhoHi = 1., rhoLo = 1.-deltaRho;
 
+    // initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
+    //                          PressureGradient<T>(rhoHi,rhoLo,nz,0) );
     initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-                             PressureGradient<T>(rhoHi,rhoLo,nz,0) );
+                             PoiseuilleProfileAndPressureGradient<T>(rhoHi,rhoLo,uMax,nx,ny,nz,0) );
 
     lattice.initialize();
+    lattice.toggleInternalStatistics(false);
 
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
@@ -194,39 +200,28 @@ int main(int argc, char* argv[]) {
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
 
     T dt_dem = dt_phys/(T)demSubsteps;
-    std::stringstream cmd;
-    cmd << "variable t_step equal " << dt_dem;
-    pcout << cmd.str() << std::endl;
-    wrapper.execCommand(cmd);
-    cmd.str("");
+    wrapper.setVariable("t_step",dt_dem);
+    wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
+    wrapper.setVariable("dmp_dir",demOutDir);
 
-    cmd << "variable dmp_stp equal " << vtkSteps*demSubsteps;
-    pcout << cmd.str() << std::endl;
-    wrapper.execCommand(cmd);
-    cmd.str("");
-
-    cmd << "variable dmp_dir string " << demOutDir;
-    pcout << cmd.str() << std::endl;
-    wrapper.execCommand(cmd);
-    cmd.str("");
 
     wrapper.execFile("in2.lbdem");
-    wrapper.execCommand("run 9 upto");
+    wrapper.runUpto(demSubsteps-1);
 
-    clock_t start = clock();    
-
+    clock_t start = clock();
+    clock_t loop = clock();
+    clock_t end = clock(); 
 
     // Loop over main time iteration.
     for (plint iT=0; iT<=maxSteps; ++iT) {
 
-      wrapper.dataFromLiggghts();
-
-      bool initWithVel = false;
-      setSpheresOnLattice(lattice,wrapper,units,initWithVel);
-      
+      static bool initWithVel = true;
+      setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);
+      if(initWithVel) initWithVel = false;
 
       //if(iT%vtkSteps == 0 && iT > 3000)
-      if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
+      // if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
+      if(iT%vtkSteps == 0) // LIGGGHTS does not write at timestep 0
         writeVTK(lattice,parameters,units,iT);
 
       PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,0,1,-1);
@@ -234,22 +229,27 @@ int main(int argc, char* argv[]) {
       lattice.collideAndStream();
       ppm.postColl(lattice);
 
-      getForcesFromLattice(lattice,wrapper,units);
+      getForcesFromLatticeNew(lattice,wrapper,units);
 
-      wrapper.dataToLiggghts();
-      wrapper.execCommand("run 10");
+      wrapper.run(demSubsteps);
 
 
       if(iT%logSteps == 0){
-        clock_t end = clock();
-        T time = difftime(end,start)/((T)CLOCKS_PER_SEC);
-        T mlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*units.getLbSteps(logT)))/time/1e6;
+        end = clock();
+        T time = difftime(end,loop)/((T)CLOCKS_PER_SEC);
+        T totaltime = difftime(end,start)/((T)CLOCKS_PER_SEC);
+        T mlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*logSteps))/time/1e6;
         pcout << "time: " << time << " " ;
-        pcout << "calculating at " << mlups << " MLU/s" << std::endl;
-        start = clock();
+        pcout << "calculating at " << mlups << " MLU/s"
+              << " | total time running: " << totaltime << std::endl;
+        loop = clock();
       }
 
-      // pcerr << iT << " " << x[0][0] << " " << f[0][0] << std::endl;
     }
+    T totaltime = difftime(end,start)/((T)CLOCKS_PER_SEC);
+    T totalmlups = ((T) (lattice.getNx()*lattice.getNy()*lattice.getNz()*(maxSteps+1)))/totaltime/1e6;
+    pcout << " ********************** \n"
+          << "total time: " << totaltime
+          << " calculating at " << totalmlups << " MLU/s" << std::endl;
 
 }

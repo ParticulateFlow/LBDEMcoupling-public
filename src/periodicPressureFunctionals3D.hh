@@ -103,8 +103,7 @@ namespace plb {
     : rhoIn(rhoIn_), rhoOut(rhoOut_), rhoAvgIn(0.), rhoAvgOut(0.),
       inlet(inlet_), outlet(outlet_), tmp(inlet_),
       dimension(dimension_), inDirection(inDirection_), outDirection(outDirection_),
-    rho(lattice.getNx(),lattice.getNy(),lattice.getNz()), 
-    u(lattice.getNx(),lattice.getNy(),lattice.getNz())
+    rho(lattice),u(lattice)
   {
     switch(dimension){
     case 0:
@@ -174,4 +173,45 @@ namespace plb {
     }
   }
 
+
+  template<typename T>
+  PoiseuilleProfileAndPressureGradient<T>::PoiseuilleProfileAndPressureGradient(T pHi_, T pLo_,  T uMax_, 
+                                                                                plint nx_, plint ny_, plint nz_,
+                                                                                plint dimension_)
+    : pHi(pHi_), pLo(pLo_), uMax(uMax_), 
+      nx(nx_), ny(ny_), nz(nz_), dimension(dimension_)
+  { }
+  template<typename T>
+  void PoiseuilleProfileAndPressureGradient<T>::operator() 
+    (plint iX, plint iY, plint iZ, T& density, Array<T,3>& velocity) const
+  {
+    velocity.resetToZero();
+    switch(dimension){
+    case 0:
+      density = pHi - (pHi-pLo)*(T)iX/(T)(nx-1);
+      velocity[0] = uMax*poiseuilleVelocity(iY,ny)*poiseuilleVelocity(iZ,nz);
+      velocity[1] = 0.;
+      velocity[2] = 0.;
+      break;
+    case 1:
+      density = pHi - (pHi-pLo)*(T)iY/(T)(ny-1);
+      velocity[0] = 0.;
+      velocity[1] = uMax*poiseuilleVelocity(iX,nx)*poiseuilleVelocity(iZ,nz);
+      velocity[2] = 0.;
+      break;
+    case 2:
+      density = pHi - (pHi-pLo)*(T)iZ/(T)(nz-1);
+      velocity[0] = 0.;
+      velocity[1] = 0.;
+      velocity[2] = uMax*poiseuilleVelocity(iX,nx)*poiseuilleVelocity(iY,ny);
+      break;
+    }
+  }
+  template<typename T>
+  T PoiseuilleProfileAndPressureGradient<T>::poiseuilleVelocity(T i, T n) const
+  {
+    T nHalf = n/2.;
+    T x = (i-nHalf)/(nHalf);
+    return (1.-x*x);
+  }
 };

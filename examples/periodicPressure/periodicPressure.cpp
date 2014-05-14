@@ -7,6 +7,9 @@
 #include "plb_ib.h"
 #include <ctime>
 
+#include "liggghtsCouplingWrapper.h"
+#include "latticeDecomposition.h"
+
 using namespace plb;
 using namespace std;
 
@@ -125,7 +128,7 @@ int main(int argc, char* argv[]) {
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
-    writeLogFile(parameters, "3D sedimenting sphere");
+    writeLogFile(parameters, "periodic pressure check");
 
     plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
 
