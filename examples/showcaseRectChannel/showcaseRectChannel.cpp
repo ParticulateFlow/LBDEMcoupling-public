@@ -43,14 +43,14 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
  
   vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
                           "SolidFraction",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
-                          "PartId",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
-                          "fx",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
-                          "fy",1);
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
-                          "fz",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
+  //                         "PartId",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
+  //                         "fx",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
+  //                         "fy",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
+  //                         "fz",1);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
                defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
                new DYNAMICS );
 
-    const T maxT = (T)100.;
+    const T maxT = (T)1000.;
     const T vtkT = 0.1;
     const T gifT = 100;
     const T logT = 0.000000002;
@@ -219,9 +219,9 @@ int main(int argc, char* argv[]) {
       setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);
       if(initWithVel) initWithVel = false;
 
-      //if(iT%vtkSteps == 0 && iT > 3000)
-      // if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
-      if(iT%vtkSteps == 0) // LIGGGHTS does not write at timestep 0
+      // if(iT%vtkSteps == 0 && iT > 3000)
+      if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
+      // if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,units,iT);
 
       PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,0,1,-1);

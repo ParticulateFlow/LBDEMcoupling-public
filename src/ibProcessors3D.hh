@@ -445,7 +445,7 @@ namespace plb{
                             LiggghtsCouplingWrapper &wrapper,
                             PhysUnits3D<T> const &units)
   {
-    typename ParticleData<T>::ParticleDataArrayVector x_lb;
+    static typename ParticleData<T>::ParticleDataArrayVector x_lb;
     for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++)
       x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.x[iPart][0]),
                                   units.getLbLength(wrapper.x[iPart][1]),
@@ -519,7 +519,7 @@ namespace plb{
       
       // only go over part that lies on local processor
       // to avoid unnecessary communication overhead
-      Box3D sss_box_intersect;
+      Box3D sss_box_intersect(0,0,0,0,0,0);
       bool boxes_intersect = intersect(sss_box,localBB,sss_box_intersect);
       // std::cout << r << " intersect " << boxes_intersect << " "
       //           << sss_box_intersect.x0 << " " << sss_box_intersect.x1 << " "
@@ -528,7 +528,8 @@ namespace plb{
       //           << std::endl;
       if(boxes_intersect)
         applyProcessingFunctional(sss,sss_box_intersect,lattice);
-
+      else
+        delete sss;
       // applyProcessingFunctional(sss,sss_box,lattice);
     }
 
@@ -547,20 +548,31 @@ namespace plb{
     plint r = global::mpi().getRank();
 
     static std::vector<T> force,torque;
+    static typename ParticleData<T>::ParticleDataArrayVector x_lb;
 
-    plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
-
-    typename ParticleData<T>::ParticleDataArrayVector x_lb;
-
-    for(plint iPart=0;iPart<nPart;iPart++)
-      x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
-                                  units.getLbLength(wrapper.lmp->atom->x[iPart][1]),
-                                  units.getLbLength(wrapper.lmp->atom->x[iPart][2]) ) );
-    
-
+    plint const nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
     plint const n_force = nPart*3;
 
-    if(n_force == 0) return; // no particles - no work
+    if(nPart == 0) return; // no particles - no work
+
+    if(nPart > x_lb.size()){
+      for(plint iPart=0;iPart<x_lb.size();iPart++){
+        x_lb[iPart][0] = units.getLbLength(wrapper.lmp->atom->x[iPart][0]);
+        x_lb[iPart][1] = units.getLbLength(wrapper.lmp->atom->x[iPart][1]);
+        x_lb[iPart][2] = units.getLbLength(wrapper.lmp->atom->x[iPart][2]);
+      }
+      for(plint iPart = x_lb.size();iPart < nPart; iPart++)
+        x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
+                                    units.getLbLength(wrapper.lmp->atom->x[iPart][1]),
+                                    units.getLbLength(wrapper.lmp->atom->x[iPart][2]) ) );
+    } else{
+      for(plint iPart=0;iPart<nPart;iPart++){
+        x_lb[iPart][0] = units.getLbLength(wrapper.lmp->atom->x[iPart][0]);
+        x_lb[iPart][1] = units.getLbLength(wrapper.lmp->atom->x[iPart][1]);
+        x_lb[iPart][2] = units.getLbLength(wrapper.lmp->atom->x[iPart][2]);
+      }
+    }
+
 
     if(n_force > force.size()){
       for(plint i=0;i<force.size();i++){

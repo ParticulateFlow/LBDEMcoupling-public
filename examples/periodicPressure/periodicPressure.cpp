@@ -30,19 +30,15 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   std::string fname(createFileName("vtk", iter, 6));
   
   VtkImageOutput3D<T> vtkOut(fname, units.getPhysLength(1));
-  // vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", units.getPhysVel(1));
-  // vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", units.getPhysVel(1));  
-  // vtkOut.writeData<float>(*computeDensity(lattice), "density",units.getPhysDensity(1)); 
 
-  vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", 1.);
-  vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", 1.);  
-  vtkOut.writeData<float>(*computeDensity(lattice), "density", 1.); 
+  vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", units.getPhysVel(1.));  
+  vtkOut.writeData<float>(*computeDensity(lattice), "density", units.getPhysDensity(1.)); 
   
   MultiScalarField3D<T> p(*computeDensity(lattice));
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
 
-  pcout << "wrote " << fname << std::endl;
+  // pcout << "wrote " << fname << std::endl;
 }
 
 void writeAscii(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
@@ -144,8 +140,10 @@ int main(int argc, char* argv[]) {
     T deltaRho = gradRho*((T)nz-2.);//((T)nz-1.);
     T rhoHi = 1.+0.5*deltaRho, rhoLo = 1.-0.5*deltaRho;
 
+    // initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
+    //                          PressureGradient<T>(rhoHi,rhoLo, nz, 2) );
     initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-                             PressureGradient<T>(rhoHi,rhoLo, nz, 2) );
+                             PoiseuilleProfileAndPressureGradient<T>(rhoHi,rhoLo,uMax,nx,ny,nz,2) );
 
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
@@ -163,12 +161,12 @@ int main(int argc, char* argv[]) {
     // for (plint iT=0; iT<maxSteps; ++iT) {
     for (plint iT=0; /*iT<maxSteps*/; ++iT) {
 
-      // if(iT%vtkSteps == 0)
-      //   writeVTK(lattice,parameters,units,iT);
+      if(iT%vtkSteps == 0)
+        writeVTK(lattice,parameters,units,iT);
 
 
-      pcerr << units.getPhysPress(computeAverageDensity(lattice,inlet)) << " " 
-            << units.getPhysPress(computeAverageDensity(lattice,outlet)) << std::endl;
+      // pcerr << units.getPhysPress(computeAverageDensity(lattice,inlet)) << " " 
+      //       << units.getPhysPress(computeAverageDensity(lattice,outlet)) << std::endl;
 
       PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,2,1,-1);
       ppm.preColl(lattice);
@@ -190,10 +188,10 @@ int main(int argc, char* argv[]) {
         
         T delta_umax = abs((umax-umax_old)/umax);
        
-        pcout << "Maximum velocity in domain: " << setprecision(10) << units.getPhysVel(umax) 
-              << " | old: " << setprecision(10) << units.getPhysVel(umax_old) << std::endl;
-        pcout << "Relative change in maximum velocity: " << delta_umax 
-              << " , convergence criterion: " << conv_crit << std::endl;
+        // pcout << "Maximum velocity in domain: " << setprecision(10) << units.getPhysVel(umax) 
+        //       << " | old: " << setprecision(10) << units.getPhysVel(umax_old) << std::endl;
+        // pcout << "Relative change in maximum velocity: " << delta_umax 
+        //       << " , convergence criterion: " << conv_crit << std::endl;
         if(delta_umax < conv_crit) break;
 
         umax_old = umax;

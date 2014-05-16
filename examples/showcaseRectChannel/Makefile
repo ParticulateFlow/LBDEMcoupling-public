@@ -39,7 +39,7 @@ libraryPaths = ${LIGGGHTS_ROOT}/src
 # Path to inlude directories (other than Palabos)
 includePaths = ${LBDEM_ROOT}/src/ ${LIGGGHTS_ROOT}/src
 # Dynamic and static libraries (other than Palabos)
-#libraries    = liblmp_fedora-debug.a
+#libraries    = liblmp_fedora_debug.a
 libraries    = liblmp_fedora.a
 
 # Compiler to use without MPI parallelism
