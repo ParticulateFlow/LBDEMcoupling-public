@@ -32,10 +32,8 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   std::string fname(createFileName("vtk", iter, 6));
   
   VtkImageOutput3D<T> vtkOut(fname, units.getPhysLength(1));
-  vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", units.getPhysVel(1));
   vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", units.getPhysVel(1));  
-  vtkOut.writeData<float>(*computeDensity(lattice), "density",units.getPhysDensity(1)); 
-  
+
   MultiScalarField3D<T> p(*computeDensity(lattice));
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
@@ -43,14 +41,6 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
  
   vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
                           "SolidFraction",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
-  //                         "PartId",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
-  //                         "fx",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
-  //                         "fy",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
-  //                         "fz",1);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -101,20 +91,24 @@ int main(int argc, char* argv[]) {
     const T uMax = 0.02;
 
     plint N;
-    T deltaP;
+    T deltaP,v_frac,d_part;
     
     std::string outDir;
     
     try {
         global::argv(1).read(N);
         global::argv(2).read(deltaP);
-        global::argv(3).read(outDir);
+        global::argv(3).read(v_frac);
+        global::argv(4).read(d_part);
+        global::argv(5).read(outDir);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
         pcout << "1 : N\n";
         pcout << "2 : deltaP\n";
-        pcout << "3 : outDir\n";
+        pcout << "3 : v_frac\n";
+        pcout << "4 : d_part\n";
+        pcout << "5 : outDir\n";
         exit(1);
     }
 
@@ -129,15 +123,20 @@ int main(int argc, char* argv[]) {
     argv_lmp[0] = argv[0];
 
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
+
+    wrapper.setVariable("r_part",d_part/2);
+    wrapper.setVariable("v_frac",v_frac);
+
     wrapper.execFile("in.lbdem");
 
     const T nu_f = 1e-3;
 
     const T lx = 0.8, ly = 0.2, lz = 0.2;
 
-    T gradP = deltaP/lz;
+    T gradP = deltaP/lx;
     T lx_eff = lx;//*(T)(N-1)/(T)N;
-    T u_phys = gradP*lx_eff*lx_eff/(nu_f*8*rho_f);
+    T lz_eff = lz;
+    T u_phys = gradP*lz_eff*lz_eff/(nu_f*8*rho_f);
 
     
     PhysUnits3D<T> units(lz,u_phys,nu_f,lx,ly,lz,N,uMax,rho_f);
@@ -159,8 +158,8 @@ int main(int argc, char* argv[]) {
                defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
                new DYNAMICS );
 
-    const T maxT = (T)1000.;
-    const T vtkT = 0.1;
+    const T maxT = 5000.;//(T)1000.;
+    const T vtkT = 1.;
     const T gifT = 100;
     const T logT = 0.000000002;
 
@@ -171,7 +170,7 @@ int main(int argc, char* argv[]) {
 
     writeLogFile(parameters, "rect channel showcase");
 
-    plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
+    plint nx = parameters.getNx()-1, ny = parameters.getNy(), nz = parameters.getNz();
 
     lattice.periodicity().toggle(0,true);
 
@@ -191,13 +190,16 @@ int main(int argc, char* argv[]) {
     lattice.toggleInternalStatistics(false);
 
     T dt_phys = units.getPhysTime(1);
-    pcout << "omega: " << parameters.getOmega() << "\n" 
+    pcout << " ---------------------------------------------- \n"
+          << "omega: " << parameters.getOmega() << "\n"
           << "dt_phys: " << dt_phys << "\n"
           << "u_phys: " << u_phys << "\n"
           << "Re : " << parameters.getRe() << "\n"
           << "deltaRho : " << deltaRho << "\n"
-          << "vtkSteps: " << vtkSteps << "\n"
-          << "grid size: " << nx << " " << ny << " " << nz << std::endl;
+          << "vtkT: " << vtkT << " | vtkSteps: " << vtkSteps << "\n"
+          << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
+          << "grid size: " << nx << " " << ny << " " << nz << " \n"
+          << " ---------------------------------------------- " << std::endl;
 
     T dt_dem = dt_phys/(T)demSubsteps;
     wrapper.setVariable("t_step",dt_dem);
@@ -232,7 +234,6 @@ int main(int argc, char* argv[]) {
       getForcesFromLatticeNew(lattice,wrapper,units);
 
       wrapper.run(demSubsteps);
-
 
       if(iT%logSteps == 0){
         end = clock();
