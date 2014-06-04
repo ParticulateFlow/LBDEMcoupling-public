@@ -2,6 +2,27 @@
 #define PERIODIC_PRESSURE_FUNCTIONALS_3D
 
 namespace plb {
+  /*
+   * implements a periodic pressure gradient across a periodic boundary
+   * following 
+   * Zhang and Kwok, Phys.Rev.E 73, 047702 (2006)
+   */
+
+  template<typename T, template<typename U> class Descriptor>
+  class ZhangPeriodicPressureFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
+  public:
+    ZhangPeriodicPressureFunctional3D(T rhoTarget_, T rhoAvg_, plint dimension_, plint direction_);
+    void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual ZhangPeriodicPressureFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<plb::modif::ModifT>& modified) const;
+
+  private:
+    typedef std::vector<plint> IndexVec;
+    IndexVec rescalePop;
+    T rhoTarget,rhoAvg;
+    plint dimension, direction;
+
+  };
 
   /**
    * this derives directly from BoxProcessingFunctional

@@ -90,10 +90,72 @@ namespace plb {
     }
     return cell.computeEquilibrium(iEq,rho,u,jSqr);
   }   
+
+
+  /*
+   * implementation of ZhangPeriodicPressureFunctional
+   */
+
+
+  template<typename T, template<typename U> class Descriptor>
+  ZhangPeriodicPressureFunctional3D<T,Descriptor>::ZhangPeriodicPressureFunctional3D
+  (T rhoTarget_, T rhoAvg_, plint dimension_, plint direction_) 
+    : rhoTarget(rhoTarget_), rhoAvg(rhoAvg_),
+      dimension(dimension_), direction(direction_)
+  {
+    for(plint iPop=0;iPop<Descriptor<T>::q;iPop++){
+      if(Descriptor<T>::c[iPop][dimension] == direction){
+        rescalePop.push_back(iPop);      
+      }
+    }
+    // for(plint i=0;i<rescalePop.size();i++)
+    //   pcout << rescalePop[i] << " ";
+    // pcout << std::endl;
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void ZhangPeriodicPressureFunctional3D<T,Descriptor>::process
+  (Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
+  {
+    T rescaleFactor = rhoTarget/rhoAvg;
+    // pcout << dimension << " " << direction << " | " 
+    // 	  << rhoTarget << " " << rhoAvg << " " << rescaleFactor << std::endl;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+      for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+        for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+
+	  Cell<T,Descriptor> &cell = lattice.get(iX,iY,iZ);
+
+          for(plint i=0;i<rescalePop.size();i++){
+	    plint ii=rescalePop[i];
+	    T fTmp = cell[ii] + Descriptor<T>::t[ii];
+	    fTmp *= rescaleFactor;
+	    cell[ii] = fTmp - Descriptor<T>::t[ii];
+          }
+
+        }
+      }
+    }
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  ZhangPeriodicPressureFunctional3D<T,Descriptor>* 
+  ZhangPeriodicPressureFunctional3D<T,Descriptor>::clone() const
+  { 
+    return new ZhangPeriodicPressureFunctional3D<T,Descriptor>(*this);
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void ZhangPeriodicPressureFunctional3D<T,Descriptor>::getTypeOfModification
+  (std::vector<plb::modif::ModifT>& modified) const
+  {
+    modified[0] = modif::staticVariables;
+  }
   
   /* 
    * implementation of PeriodicPressureManager
    */
+
 
   template<typename T, template<typename U> class Descriptor>
   PeriodicPressureManager<T,Descriptor>::PeriodicPressureManager(MultiBlockLattice3D<T,Descriptor> &lattice, 

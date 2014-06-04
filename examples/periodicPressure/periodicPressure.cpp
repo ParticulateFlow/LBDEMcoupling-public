@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) {
 
     const T maxT = (T)30.;
     const T vtkT = 0.1;
-    const T logT = 0.5;
+    const T logT = 1.;
 
     const plint maxSteps = units.getLbSteps(maxT);
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
@@ -134,16 +134,15 @@ int main(int argc, char* argv[]) {
     lattice.periodicity().toggle(1,true);
     lattice.periodicity().toggle(2,true);
 
-    Box3D inlet(0,nx-1,0,ny-1,0,0), outlet(0,nx-1,0,ny-1,nz-1,nz-1);
+    Box3D inlet(0,nx-1,0,ny-1,0,0), 
+      outlet(0,nx-1,0,ny-1,nz-1,nz-1), 
+      tmp(0,nx-1,0,ny-1,nz-2,nz-2);
     T gradRho = units.getLbRho(gradP)/units.getLbLength(1.); 
-    // T deltaRho = units.getLbRho(gradP*lz)*((T)(nz-1)/(T)nz);
-    T deltaRho = gradRho*((T)nz-2.);//((T)nz-1.);
-    T rhoHi = 1.+0.5*deltaRho, rhoLo = 1.-0.5*deltaRho;
+    T deltaRho = gradRho*((T)nz-1.);
+    T rhoIn = 1.+0.5*deltaRho, rhoOut = 1.-0.5*deltaRho;
 
     // initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-    //                          PressureGradient<T>(rhoHi,rhoLo, nz, 2) );
-    initializeAtEquilibrium( lattice, lattice.getBoundingBox(), 
-                             PoiseuilleProfileAndPressureGradient<T>(rhoHi,rhoLo,uMax,nx,ny,nz,2) );
+    //                          PoiseuilleProfileAndPressureGradient<T>(rhoIn,rhoOut,0.,nx,ny,nz,2) );
 
     T dt_phys = units.getPhysTime(1);
     pcout << "omega: " << parameters.getOmega() << "\n" 
@@ -161,17 +160,28 @@ int main(int argc, char* argv[]) {
     // for (plint iT=0; iT<maxSteps; ++iT) {
     for (plint iT=0; /*iT<maxSteps*/; ++iT) {
 
-      if(iT%vtkSteps == 0)
-        writeVTK(lattice,parameters,units,iT);
+      // if(iT%vtkSteps == 0)
+      //   writeVTK(lattice,parameters,units,iT);
 
+      MultiScalarField3D<T> rho(lattice);
 
-      // pcerr << units.getPhysPress(computeAverageDensity(lattice,inlet)) << " " 
-      //       << units.getPhysPress(computeAverageDensity(lattice,outlet)) << std::endl;
+      T rhoAvgIn = computeAverageDensity(lattice,inlet);
+      T rhoAvgOut = computeAverageDensity(lattice,outlet);
 
-      PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,2,1,-1);
-      ppm.preColl(lattice);
+      pcerr << rhoIn << " " << rhoOut << " | " 
+	    << rhoAvgIn << " " << rhoAvgOut << std::endl;
+      
       lattice.collideAndStream();
-      ppm.postColl(lattice);
+ 
+      applyProcessingFunctional
+	(new ZhangPeriodicPressureFunctional3D<T,DESCRIPTOR>(rhoIn, 
+							     rhoAvgOut,2,1),
+	 inlet,lattice);
+      
+      applyProcessingFunctional
+	(new ZhangPeriodicPressureFunctional3D<T,DESCRIPTOR>(rhoOut, 
+							     rhoAvgIn,2,-1),
+	 outlet,lattice);
 
       if(iT%logSteps >= logSteps-aveSteps){
         umax += computeMax(*computeVelocityNorm(lattice));
@@ -188,10 +198,10 @@ int main(int argc, char* argv[]) {
         
         T delta_umax = abs((umax-umax_old)/umax);
        
-        // pcout << "Maximum velocity in domain: " << setprecision(10) << units.getPhysVel(umax) 
-        //       << " | old: " << setprecision(10) << units.getPhysVel(umax_old) << std::endl;
-        // pcout << "Relative change in maximum velocity: " << delta_umax 
-        //       << " , convergence criterion: " << conv_crit << std::endl;
+        pcout << "Maximum velocity in domain: " << setprecision(10) << units.getPhysVel(umax) 
+              << " | old: " << setprecision(10) << units.getPhysVel(umax_old) << std::endl;
+        pcout << "Relative change in maximum velocity: " << delta_umax 
+              << " , convergence criterion: " << conv_crit << std::endl;
         if(delta_umax < conv_crit) break;
 
         umax_old = umax;
@@ -199,4 +209,17 @@ int main(int argc, char* argv[]) {
       }
     }
     writeAscii(lattice,units);
+    T uSim = units.getPhysVel(computeMax(*computeVelocityNorm(lattice)));
+    pcout << "uPhys " << u_phys << std::endl;
+    pcout << "uSim  " << uSim << std::endl;
+    pcout << "error " << (uSim-u_phys)/u_phys << std::endl;
+
+    T deltaPSim = units.getPhysPress(computeAverageDensity(lattice,inlet)) 
+      - units.getPhysPress(computeAverageDensity(lattice,outlet));
+    T lz_eff = lz * ((T)(nz-1)) / ((T)nz);
+    T gradPSim = deltaPSim / lz_eff;
+    pcout << "gradP_phys " << gradP << std::endl;
+    pcout << "gradP_sim  " << gradPSim << std::endl;
+    pcout << "error      " << (gradPSim-gradP)/gradP << std::endl;
+    
 }
