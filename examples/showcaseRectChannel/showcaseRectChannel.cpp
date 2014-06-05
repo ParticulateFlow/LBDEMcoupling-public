@@ -226,10 +226,20 @@ int main(int argc, char* argv[]) {
       // if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,units,iT);
 
-      PeriodicPressureManager<T,DESCRIPTOR> ppm(lattice,rhoHi,rhoLo,inlet,outlet,0,1,-1);
-      ppm.preColl(lattice);
+      T rhoAvgIn = computeAverageDensity(lattice,inlet);
+      T rhoAvgOut = computeAverageDensity(lattice,outlet);
+
       lattice.collideAndStream();
-      ppm.postColl(lattice);
+ 
+      applyProcessingFunctional
+	(new ZhangPeriodicPressureFunctional3D<T,DESCRIPTOR>(rhoHi, 
+							     rhoAvgOut,0,1),
+	 inlet,lattice);
+      
+      applyProcessingFunctional
+	(new ZhangPeriodicPressureFunctional3D<T,DESCRIPTOR>(rhoLo, 
+							     rhoAvgIn,0,-1),
+	 outlet,lattice);
 
       getForcesFromLatticeNew(lattice,wrapper,units);
 

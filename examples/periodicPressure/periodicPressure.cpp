@@ -209,6 +209,7 @@ int main(int argc, char* argv[]) {
       }
     }
     writeAscii(lattice,units);
+    writeVTK(lattice,parameters,units,1);
     T uSim = units.getPhysVel(computeMax(*computeVelocityNorm(lattice)));
     pcout << "uPhys " << u_phys << std::endl;
     pcout << "uSim  " << uSim << std::endl;
