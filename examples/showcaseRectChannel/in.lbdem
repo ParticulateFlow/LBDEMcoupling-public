@@ -43,10 +43,10 @@ fix zwalls2 all wall/gran model hertz tangential history primitive type 1 zplane
 fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 1000 radius constant ${r_part}
 fix pdd1 all particledistribution/discrete 6778  1 pts1 1.0
 region  insreg block 0.02 0.78 0.005 0.195 0.005 0.195 units box
-# fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once &
-#                         overlapcheck yes volumefraction_region ${v_frac} region insreg ntry_mc 10000 
-fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once &
-                        overlapcheck yes particles_in_region 5 region insreg ntry_mc 10000 
+ fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once &
+                         overlapcheck yes volumefraction_region ${v_frac} region insreg ntry_mc 10000 
+#fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once &
+#                        overlapcheck yes particles_in_region 1 region insreg ntry_mc 10000 
 
 
 

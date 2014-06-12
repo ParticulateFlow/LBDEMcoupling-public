@@ -88,11 +88,8 @@ int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
 
-    const T uMax = 0.02;
-
     plint N;
-    T deltaP,v_frac,d_part;
-    
+    T deltaP,v_frac,d_part, uMax;    
     std::string outDir;
     
     try {
@@ -100,7 +97,8 @@ int main(int argc, char* argv[]) {
         global::argv(2).read(deltaP);
         global::argv(3).read(v_frac);
         global::argv(4).read(d_part);
-        global::argv(5).read(outDir);
+	global::argv(5).read(uMax);
+        global::argv(6).read(outDir);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
@@ -108,7 +106,8 @@ int main(int argc, char* argv[]) {
         pcout << "2 : deltaP\n";
         pcout << "3 : v_frac\n";
         pcout << "4 : d_part\n";
-        pcout << "5 : outDir\n";
+        pcout << "5 : uMax\n";
+        pcout << "6 : outDir\n";
         exit(1);
     }
 
@@ -136,7 +135,11 @@ int main(int argc, char* argv[]) {
     T gradP = deltaP/lx;
     T lx_eff = lx;//*(T)(N-1)/(T)N;
     T lz_eff = lz;
-    T u_phys = gradP*lz_eff*lz_eff/(nu_f*8*rho_f);
+    // // valid for flat channel
+    // T u_phys = gradP*lz_eff*lz_eff/(nu_f*8*rho_f); 
+    // valid for square channel, see VDI Wärmeatlas
+    T nu_rel = 1. + v_frac; // Einstein: 2.5 - be more conservative here
+    T u_phys = 0.08 * gradP*lz_eff*lz_eff/(nu_f*rho_f*nu_rel); 
 
     
     PhysUnits3D<T> units(lz,u_phys,nu_f,lx,ly,lz,N,uMax,rho_f);
@@ -158,8 +161,8 @@ int main(int argc, char* argv[]) {
                defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
                new DYNAMICS );
 
-    const T maxT = 5000.;//(T)1000.;
-    const T vtkT = 1.;
+    const T maxT = 50.;//(T)1000.;
+    const T vtkT = 5.;
     const T gifT = 100;
     const T logT = 0.000000002;
 
@@ -196,6 +199,7 @@ int main(int argc, char* argv[]) {
           << "u_phys: " << u_phys << "\n"
           << "Re : " << parameters.getRe() << "\n"
           << "deltaRho : " << deltaRho << "\n"
+	  << "nuRel : " << nu_rel << "\n"
           << "vtkT: " << vtkT << " | vtkSteps: " << vtkSteps << "\n"
           << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << " \n"
@@ -223,7 +227,7 @@ int main(int argc, char* argv[]) {
 
       // if(iT%vtkSteps == 0 && iT > 3000)
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
-      // if(iT%vtkSteps == 0)
+	// if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,units,iT);
 
       T rhoAvgIn = computeAverageDensity(lattice,inlet);
