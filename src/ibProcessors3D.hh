@@ -209,7 +209,7 @@ namespace plb{
           T dx = xGlobal - x[ind][0];
           T dy = yGlobal - x[ind][1];
           T dz = zGlobal - x[ind][2];
-          
+          pcerr << dx << " " << dy << " " << dz << std::endl;
           // minimum image convention
           // if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
           // if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
@@ -233,7 +233,9 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addTorque(plint partId, plint coord, T value)
   {
+    pcerr << 3*partId+coord << " " << torque[3*partId+coord] << " " << value;
     torque[3*partId+coord] += value;
+    pcerr << " " << torque[3*partId+coord] << std::endl;
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -573,7 +575,6 @@ namespace plb{
       }
     }
 
-
     if(n_force > force.size()){
       for(plint i=0;i<force.size();i++){
         force[i] = 0;
@@ -594,7 +595,7 @@ namespace plb{
                                                                              &force.front(),&torque.front(),
                                                                              wrapper);
 
-    // this relies on the fact that there is exactly one block on each lattice
+    // this relies on the fact that there is exactly one block on each processor
     plint iBlock = lattice.getLocalInfo().getBlocks()[0];
     std::map<plint,Box3D> blockmap = lattice.getSparseBlockStructure().getBulks();
     Box3D localBB = blockmap[iBlock];
@@ -620,13 +621,16 @@ namespace plb{
     double **f_liggghts = couplingFix->get_force_ptr();
     double **t_liggghts = couplingFix->get_torque_ptr();
 
+    pcerr << "getforcesfromlattice ";
     for(plint iPart=0;iPart<nPart;iPart++){
       int tag = wrapper.lmp->atom->tag[iPart];
       int liggghts_ind = wrapper.lmp->atom->map(tag);
       for(plint i=0;i<3;i++){
         f_liggghts[liggghts_ind][i] = units.getPhysForce(force[3*iPart+i]);
-        t_liggghts[iPart][i] = units.getPhysTorque(torque[3*iPart+i]);
+        t_liggghts[liggghts_ind][i] = units.getPhysTorque(torque[3*iPart+i]);
+        pcerr << units.getPhysTorque(torque[3*iPart+i]) << " ";
       }
+      pcerr << std::endl;
     }
     couplingFix->comm_force_torque();
 
