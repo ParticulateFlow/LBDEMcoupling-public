@@ -47,9 +47,10 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor -Wno-write-strings
+compileFlags = -Wnon-virtual-dtor -Wno-write-strings
 # General linker flags (don't put library includes into this flag)
-linkFlags    =
+# replace -llmp_fedora with the name of your library!
+linkFlags    = -Wl,--whole-archive -llmp_fedora -Wl,--no-whole-archive 
 # Compiler flags to use when optimization mode is on
 optimFlags   = -O3
 # Compiler flags to use when debug mode is on
