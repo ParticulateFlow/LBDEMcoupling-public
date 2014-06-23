@@ -18,6 +18,15 @@
  * Author: Philippe Seil (philippe.seil@jku.at)
  */
 
+/*
+ * This example consists of a square channel that can be filled with 
+ * particles. Along the x-axis, periodic boundary conditions with a
+ * pressure gradient are applied. For laminar flow, a Poiseuille-like
+ * flow profile develops. The particles migrate laterally towards equilibrium
+ * positions that depend on their size, the channel Reynolds number, and
+ * the particle volume fraction.
+ */
+
 #include "palabos3D.h"
 #include "palabos3D.hh"
 
@@ -79,30 +88,6 @@ void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iT)
     pcout << "wrote " << fname << std::endl;
 }
 
-void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iPop, plint iT)
-{
-  std::stringstream fname_stream;
-  fname_stream << global::directories().getOutputDir()
-               << "f_" << setfill('0') << setw(2) << iPop << "_"
-               << setfill('0') << setw(8) << iT << ".dat";
-
-  plb_ofstream ofile(fname_stream.str().c_str());
-  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
-               0,lattice.getNy(),0,lattice.getNz());
-  ofile << *computePopulation(lattice, domain, iPop);
-}
-void writeExternal(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint which, char const *prefix, plint iT)
-{
-  std::stringstream fname_stream;
-  fname_stream << global::directories().getOutputDir()
-               << prefix << setfill('0') << setw(8) << iT << ".dat";
-
-  plb_ofstream ofile(fname_stream.str().c_str());
-  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
-               0,lattice.getNy(),0,lattice.getNz());
-  ofile << *computeExternalScalar(lattice,which,domain);
-}
-
 int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
@@ -110,7 +95,8 @@ int main(int argc, char* argv[]) {
     plint N;
     T deltaP,v_frac,d_part, uMax;    
     std::string outDir;
-    
+
+    // argument parsing
     try {
         global::argv(1).read(N);
         global::argv(2).read(deltaP);
@@ -129,7 +115,8 @@ int main(int argc, char* argv[]) {
         pcout << "6 : outDir\n";
         exit(1);
     }
-
+    
+    // setting output directories
     std::string lbOutDir(outDir), demOutDir(outDir);
     lbOutDir.append("tmp/"); demOutDir.append("post/");
     global::directories().setOutputDir(lbOutDir);
@@ -140,11 +127,14 @@ int main(int argc, char* argv[]) {
     argv_lmp = new char*[1];
     argv_lmp[0] = argv[0];
 
+    
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
 
+    // this is equivalent to the variable command in LIGGGHTS/LAMMPS
     wrapper.setVariable("r_part",d_part/2);
     wrapper.setVariable("v_frac",v_frac);
 
+    // executes a LIGGGHTS input script
     wrapper.execFile("in.lbdem");
 
     const T nu_f = 1e-3;
@@ -225,12 +215,16 @@ int main(int argc, char* argv[]) {
           << " ---------------------------------------------- " << std::endl;
 
     T dt_dem = dt_phys/(T)demSubsteps;
+
+    // more variables to set: DEM timestep, number of steps to write a dumpfile
+    // and dump directory
     wrapper.setVariable("t_step",dt_dem);
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
     wrapper.setVariable("dmp_dir",demOutDir);
 
-
+    // again executing input file
     wrapper.execFile("in2.lbdem");
+    // runs LIGGGHTS up to a certain step. Equivalent to the "run upto" command in LIGGGHTS/LAMMPS.
     wrapper.runUpto(demSubsteps-1);
 
     clock_t start = clock();
@@ -240,13 +234,12 @@ int main(int argc, char* argv[]) {
     // Loop over main time iteration.
     for (plint iT=0; iT<=maxSteps; ++iT) {
 
+
       static bool initWithVel = true;
       setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);
       if(initWithVel) initWithVel = false;
 
-      // if(iT%vtkSteps == 0 && iT > 3000)
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
-	// if(iT%vtkSteps == 0)
         writeVTK(lattice,parameters,units,iT);
 
       T rhoAvgIn = computeAverageDensity(lattice,inlet);
@@ -254,6 +247,7 @@ int main(int argc, char* argv[]) {
 
       lattice.collideAndStream();
  
+      // applying a pressure gradient across the periodic boundary 
       applyProcessingFunctional
 	(new ZhangPeriodicPressureFunctional3D<T,DESCRIPTOR>(rhoHi, 
 							     rhoAvgOut,0,1),
@@ -265,7 +259,8 @@ int main(int argc, char* argv[]) {
 	 outlet,lattice);
 
       getForcesFromLatticeNew(lattice,wrapper,units);
-
+      
+      // equilvalent to the "run" command in LIGGGHTS/LAMMPS
       wrapper.run(demSubsteps);
 
       if(iT%logSteps == 0){
