@@ -1,3 +1,22 @@
+/*
+ * This file is part of the LBDEMcoupling software.
+ *
+ * LBDEMcoupling is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright 2014 Johannes Kepler University Linz
+ *
+ * Author: Philippe Seil (philippe.seil@jku.at)
+ */
 
 #include "palabos3D.h"
 #include "palabos3D.hh"
@@ -37,7 +56,6 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   std::string fname(createFileName("vtk", iter, 6));
   
   VtkImageOutput3D<T> vtkOut(fname, units.getPhysLength(1));
-  // vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", units.getPhysVel(1));
   vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", units.getPhysVel(1));  
   vtkOut.writeData<float>(*computeDensity(lattice), "density",units.getPhysDensity(1)); 
   
@@ -48,55 +66,7 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
  
   vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
                           "SolidFraction",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::particleIdBeginsAt),
-  //                         "PartId",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt),
-  //                         "fx",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+1),
-  //                         "fy",1);
-  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::hydrodynamicForceBeginsAt+2),
-  //                         "fz",1);
   pcout << "wrote " << fname << std::endl;
-}
-
-void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iT)
-{
-    const plint imSize = 600;
-    const plint nx = lattice.getNx();
-    const plint ny = lattice.getNy();
-    const plint nz = lattice.getNz();
-    Box3D slice(0, nx-1, (ny-1)/2, (ny-1)/2, 0, nz-1);
-    //Box3D slice(0, nx-1, 0, ny-1, (nz-1)/2, (nz-1)/2);
-    ImageWriter<T> imageWriter("leeloo.map");
-    std::string fname(createFileName("u", iT, 6));
-    imageWriter.writeScaledGif(fname,
-                               *computeVelocityNorm(lattice, slice),
-                               imSize, imSize);
-    pcout << "wrote " << fname << std::endl;
-}
-
-void writePopulation(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,plint iPop, plint iT)
-{
-  std::stringstream fname_stream;
-  fname_stream << global::directories().getOutputDir()
-               << "f_" << setfill('0') << setw(2) << iPop << "_"
-               << setfill('0') << setw(8) << iT << ".dat";
-
-  plb_ofstream ofile(fname_stream.str().c_str());
-  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
-               0,lattice.getNy(),0,lattice.getNz());
-  ofile << *computePopulation(lattice, domain, iPop);
-}
-void writeExternal(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint which, char const *prefix, plint iT)
-{
-  std::stringstream fname_stream;
-  fname_stream << global::directories().getOutputDir()
-               << prefix << setfill('0') << setw(8) << iT << ".dat";
-
-  plb_ofstream ofile(fname_stream.str().c_str());
-  Box3D domain(lattice.getNx()/2,lattice.getNx()/2,
-               0,lattice.getNy(),0,lattice.getNz());
-  ofile << *computeExternalScalar(lattice,which,domain);
 }
 
 int main(int argc, char* argv[]) {
@@ -139,7 +109,9 @@ int main(int argc, char* argv[]) {
     const T rho_f = 1000;
 
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
-    
+
+    // particle size and volume fraction are handed over to LIGGGHTS 
+    // as variables (see LIGGGHTS docu for details)
     wrapper.setVariable("r_part",d_part/2);
     wrapper.setVariable("v_frac",v_frac);
     
@@ -155,24 +127,31 @@ int main(int argc, char* argv[]) {
     T rho_s = 1100.;
     T m = r_*r_*r_*4./3.*3.14*rho_s;
 
-    // T v_inf_calc = 2.*(rho_s-rho_f)/rho_f*g*r_*r_/9./nu_f; // stokes
-    T v_inf_calc = sqrt(4./3.*0.44*(rho_s-rho_f)/rho_f*g*2.*r_); // something else
-
     pcout << "v_inf: " << v_inf << " m: " << m << " r: " << r_ << std::endl;
     
     PhysUnits3D<T> units(2.*r_,v_inf,nu_f,lx,ly,lz,N,uMax,rho_f);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
+    plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
 
+    // get lattice decomposition from LIGGGHTS and create lattice according to parallelization
+    // given in the LIGGGHTS input script
     LatticeDecomposition lDec(parameters.getNx(),parameters.getNy(),parameters.getNz(),
                               wrapper.lmp);
-    
     SparseBlockStructure3D blockStructure = lDec.getBlockDistribution();
     ExplicitThreadAttribution* threadAttribution = lDec.getThreadAttribution();
-    plint demSubsteps = 10;
+    plint envelopeWidth = 1;
+
+    MultiBlockLattice3D<T, DESCRIPTOR> 
+      lattice (MultiBlockManagement3D (blockStructure, threadAttribution, envelopeWidth ),
+               defaultMultiBlockPolicy3D().getBlockCommunicator(),
+               defaultMultiBlockPolicy3D().getCombinedStatistics(),
+               defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
+               new DYNAMICS );
     
-    const T maxT = ceil(3.*lz/v_inf);// (T)1.;
+    
+    const T maxT = ceil(3.*lz/v_inf);
     const T vtkT = 0.1;
     const T logT = 0.0000001;
 
@@ -182,9 +161,13 @@ int main(int argc, char* argv[]) {
 
     writeLogFile(parameters, "rect channel showcase");
 
-    plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
 
+    lattice.initialize();
     T dt_phys = units.getPhysTime(1);
+    plint demSubsteps = 10;
+    T dt_dem = dt_phys/(T)demSubsteps;
+
+
     pcout << "omega: " << parameters.getOmega() << "\n" 
           << "dt_phys: " << dt_phys << "\n"
           << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
@@ -193,19 +176,7 @@ int main(int argc, char* argv[]) {
           << "vtkT: " << vtkT << " | vtkSteps: " << vtkSteps << "\n"
           << "grid size: " << nx << " " << ny << " " << nz << std::endl;
 
-    plint envelopeWidth = 1;
-    MultiBlockLattice3D<T, DESCRIPTOR> 
-      lattice (MultiBlockManagement3D (blockStructure, threadAttribution, envelopeWidth ),
-               defaultMultiBlockPolicy3D().getBlockCommunicator(),
-               defaultMultiBlockPolicy3D().getCombinedStatistics(),
-               defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
-               new DYNAMICS );
-
-
-    lattice.initialize();
-
-    T dt_dem = dt_phys/(T)demSubsteps;
-
+    // set timestep and output directory
     wrapper.setVariable("t_step",dt_dem);
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
     wrapper.setVariable("dmp_dir",demOutDir);

@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile for the Palabos example program rectangularChannel3D.
+## Makefile for the LBDEMcoupling example program showcaseRectChannel
 ##
 ## The present Makefile is a pure configuration file, in which
 ## you can select compilation options. Compilation dependencies
