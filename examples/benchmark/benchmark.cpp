@@ -18,6 +18,29 @@
  * Author: Philippe Seil (philippe.seil@jku.at)
  */
 
+/*
+This case was used as a benchmark. It consists of a tank with fluid 
+where the upper third is filled with particles that then settle under
+gravity. The command line parameter v_inf is an estimated settling velocity.
+If chosen too large, the timestep will be very small. If chosen too small,
+the simulation will crash.
+
+A few working parameter sets:
+
+./benchmark 0.1 5 0.1 1e-4 0.15 0.02 your/out/dir
+results in ~70 particles on a 51x51x101 grid. Feasible on a desktop computer.
+Particle Reynolds number ~150
+
+./benchmark 0.06 5 0.1 1e-4 0.10 0.02 your/out/dir
+~340 particles on a 84x84x164 grid - might need 1-2h or so on a desktop computer.
+Particle Reynolds number ~90
+
+./benchmark 0.02 5 0.1 1e-5 0.15 0.02 your/out/dir 
+gives you ~10k particles on a 251x251x501 grid - computationally demanding!
+Particle Reynolds number ~300
+
+ */
+
 #include "palabos3D.h"
 #include "palabos3D.hh"
 
@@ -126,14 +149,12 @@ int main(int argc, char* argv[]) {
     T r_ = d_part/2.;
     T rho_s = 1100.;
     T m = r_*r_*r_*4./3.*3.14*rho_s;
-
-    pcout << "v_inf: " << v_inf << " m: " << m << " r: " << r_ << std::endl;
     
     PhysUnits3D<T> units(2.*r_,v_inf,nu_f,lx,ly,lz,N,uMax,rho_f);
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
-    plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz()-1;
+    plint nx = parameters.getNx(), ny = parameters.getNy(), nz = parameters.getNz();
 
     // get lattice decomposition from LIGGGHTS and create lattice according to parallelization
     // given in the LIGGGHTS input script
@@ -159,7 +180,7 @@ int main(int argc, char* argv[]) {
     const plint vtkSteps = max<plint>(units.getLbSteps(vtkT),1);
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
-    writeLogFile(parameters, "rect channel showcase");
+    writeLogFile(parameters, "sedimenting spheres benchmark");
 
 
     lattice.initialize();
@@ -168,14 +189,15 @@ int main(int argc, char* argv[]) {
     T dt_dem = dt_phys/(T)demSubsteps;
 
 
-    pcout << "omega: " << parameters.getOmega() << "\n" 
+    pcout << "------------------------------\n"
+          << "omega: " << parameters.getOmega() << "\n" 
           << "dt_phys: " << dt_phys << "\n"
           << "maxT: " << maxT << " | maxSteps: " << maxSteps << "\n"
           << "v_inf: " << v_inf << "\n"
           << "Re : " << parameters.getRe() << "\n"
           << "vtkT: " << vtkT << " | vtkSteps: " << vtkSteps << "\n"
-          << "grid size: " << nx << " " << ny << " " << nz << std::endl;
-
+          << "grid size: " << nx << " " << ny << " " << nz << "\n"
+          << "------------------------------" << std::endl;
     // set timestep and output directory
     wrapper.setVariable("t_step",dt_dem);
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
