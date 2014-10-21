@@ -35,6 +35,7 @@ Particle Reynolds number ~150
 ~340 particles on a 84x84x164 grid - might need 1-2h or so on a desktop computer.
 Particle Reynolds number ~90
 
+
 ./benchmark 0.02 5 0.1 1e-5 0.15 0.02 your/out/dir 
 gives you ~10k particles on a 251x251x501 grid - computationally demanding!
 Particle Reynolds number ~300
