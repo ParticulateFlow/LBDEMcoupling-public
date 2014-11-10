@@ -67,8 +67,9 @@ using namespace plb;
 using namespace std;
 
 typedef double T;
-#define DESCRIPTOR descriptors::ImmersedBoundaryD3Q19Descriptor
-#define DYNAMICS IBdynamics<T, DESCRIPTOR>(parameters.getOmega())
+
+#define DESCRIPTOR descriptors::D3Q19Descriptor
+#define DYNAMICS IBcompositeDynamics<T,DESCRIPTOR>(new BGKdynamics<T,DESCRIPTOR>(parameters.getOmega()))
 
 void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
               IncomprFlowParam<T> const& parameters,
@@ -87,9 +88,16 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
   
+  GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>::Quantity sf = 
+    GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>::SolidFraction;
+  applyProcessingFunctional(new GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>(sf),
+                            lattice.getBoundingBox(),lattice,p);
+
+  vtkOut.writeData<float>(p,"solidfraction",1. ); 
+  
  
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-                          "SolidFraction",1);
+  // vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
+  //                         "SolidFraction",1);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -171,6 +179,8 @@ int main(int argc, char* argv[]) {
                defaultMultiBlockPolicy3D().getCombinedStatistics(),
                defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
                new DYNAMICS );
+
+    defineDynamics(lattice,lattice.getBoundingBox(),new DYNAMICS);
     
     
     const T maxT = ceil(3.*lz/v_inf);

@@ -8,7 +8,7 @@ communicate	single vel yes
 boundary	f f f
 newton		off
 
-processors 1 1 *
+processors * * 1
 region		box block 0. 1. 0. 1. 0. 2. units box
 create_box	1 box
 
@@ -16,7 +16,8 @@ variable	skin equal 0.01
 neighbor	${skin} bin
 neigh_modify	delay 0 binsize 0.01 one 1000
 
-fix grav all gravity 0.0981 vector 0 0 -1
+fix grav all gravity 0.981 vector 0 0 -1
+
 
 fix 		m1 all property/global youngsModulus peratomtype 1e8
 fix 		m2 all property/global poissonsRatio peratomtype 0.4
@@ -63,6 +64,8 @@ fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once &
                         overlapcheck yes volumefraction_region ${v_frac} region insreg ntry_mc 10000 
 #fix ins all insert/pack seed 1001 distributiontemplate pdd2 insert_every once &
 #                        overlapcheck yes volumefraction_region 0.05 region insreg ntry_mc 10000 
+#fix ins all insert/pack seed 1001 distributiontemplate pdd1 insert_every once &
+#                        overlapcheck yes particles_in_region 1 region insreg ntry_mc 10000 
 
 
 
