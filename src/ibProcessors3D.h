@@ -54,9 +54,12 @@ namespace plb{
     T *x,*v,*omega,r;
     int id;
     bool initVelFlag;
-    T calcSolidFraction(T dx_, T dy_, T dz_, T r_);
-    void setValues(Cell<T,Descriptor>& c, T sf, T dx, T dy, T dz);
-    void setToZero(Cell<T,Descriptor>& c);
+    T calcSolidFraction(T const dx_, T const dy_, T const dz_, T const r_);
+    T calcSolidFractionRec(T const dx_ ,T const dy_, T const dz_, T const r_,
+                           plint const recursionLevel);
+    void setValues(IBdynamicsParticleData<T,Descriptor> &p, 
+                   T const sf, T const dx, T const dy, T const dz);
+    void setToZero(IBdynamicsParticleData<T,Descriptor> &p);
   };
   
   /*
@@ -117,8 +120,60 @@ namespace plb{
     typename ParticleData<T>::ParticleDataArrayVector &x;
     T *force,*torque;
     LiggghtsCouplingWrapper &wrapper;
-    void addForce(plint partId, plint coord, T value);
-    void addTorque(plint partId, plint coord, T value);
+    void addForce(plint const partId, plint const coord, T const value);
+    void addTorque(plint const partId, plint const coord, T const value);
+  };
+
+  template<typename T1, template<typename U> class Descriptor, typename T2>
+  struct GetScalarQuantityFromDynamicsFunctional : public BoxProcessingFunctional3D_LS<T1,Descriptor,T2> {
+  public:
+
+    enum Quantity { SolidFraction, ParticleId };
+    Quantity which;
+    GetScalarQuantityFromDynamicsFunctional(Quantity const which_)
+      : which(which_) {}
+    
+    virtual void process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
+                         ScalarField3D<T2>& solfrac) 
+    {
+      for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+          for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+            
+            Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
+            Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
+            T1 val = 0;
+            if(dyn->isComposite()){
+              IBcompositeDynamics<T1,Descriptor> *cDyn = 
+                static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
+              switch(which){
+              case SolidFraction:
+                val = (T2) cDyn->particleData.solidFraction;
+                break;
+              case ParticleId:
+                val = (T2) cDyn->particleData.partId;
+                break;
+
+              }
+
+            }
+            solfrac.get(iX,iY,iZ) = val;
+          }
+        }
+      }
+    }
+
+    GetScalarQuantityFromDynamicsFunctional<T1,Descriptor,T2>* clone() const
+    {
+      return new GetScalarQuantityFromDynamicsFunctional<T1,Descriptor,T2>(*this);
+    }
+    void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {
+      modified[0] = modif::nothing;
+      modified[1] = modif::staticVariables;
+    }
+
+    
   };
 
 }; // plb

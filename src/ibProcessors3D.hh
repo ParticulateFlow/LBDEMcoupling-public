@@ -20,7 +20,10 @@
  *
  * Author: Philippe Seil (philippe.seil@jku.at)
  */
+
 #include "ibDef.h"
+#include "ibDynamics3D.h"
+
 #include "lammps.h"
 #include "atom.h"
 #include "modify.h"
@@ -50,124 +53,170 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SetSingleSphere3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice)
   {
-      Dot3D relativePosition = lattice.getLocation();
-     
-      for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-          for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-            Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
-	
-            T xGlobal = (T) (relativePosition.x + iX);
-            T yGlobal = (T) (relativePosition.y + iY);
-            T zGlobal = (T) (relativePosition.z + iZ);
-            
-            T *sfPtr = cell.getExternal(Descriptor<T>::ExternalField::volumeFractionBeginsAt);
-            T *idPtr = cell.getExternal(Descriptor<T>::ExternalField::particleIdBeginsAt);
+    Dot3D const relativePosition = lattice.getLocation();
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+      for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+        for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+          Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+          Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
+
+          // no composite --> no IB
+          if(!dyn->isComposite()) continue;
+          if(dyn->isBoundary())
+            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();
+
+          IBcompositeDynamics<T,Descriptor> *cDyn = 
+            static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
           
-            T dx = xGlobal - x[0];
-            T dy = yGlobal - x[1];
-            T dz = zGlobal - x[2];
-            T sf = calcSolidFraction(dx,dy,dz,r);
-
-            plint decFlag = (sf > SOLFRAC_MIN) + 2*(*sfPtr > SOLFRAC_MIN);
-
-            switch(decFlag){
-            case 0: // sf == 0 && *sfPtr == 0
-              setToZero(cell);
-              break; // do nothing
-            case 1: // sf > 0 && *sfPtr == 0
-              setValues(cell,sf,dx,dy,dz);
-              break;
-            case 2: // sf == 0 && *sfPtr > 0
-              if( (plint)(*idPtr) == id )
-                setToZero(cell);
-              break; // else do nothing
-            case 3: // sf > 0 && *sfPtr > 0
-              if( sf > *sfPtr || (plint)(*idPtr) == id )
-                setValues(cell,sf,dx,dy,dz);
-              break; // else do nothing
-            }
-
+          IBdynamicsParticleData<T,Descriptor> &particleData = cDyn->particleData;
+          
+          T const xGlobal = (T) (relativePosition.x + iX);
+          T const yGlobal = (T) (relativePosition.y + iY);
+          T const zGlobal = (T) (relativePosition.z + iZ);
+          
+          T const sf_old = particleData.solidFraction;
+          int const id_old = (int) particleData.partId;
+          
+          
+          T const dx = xGlobal - x[0];
+          T const dy = yGlobal - x[1];
+          T const dz = zGlobal - x[2];
+          T const sf = calcSolidFraction(dx,dy,dz,r);
+          
+          // pcout << iX << " " << iY << " " << iZ << " | "
+          //       << id_old << " " << id << " | " << sf_old << " " << sf << std::endl;
+          
+          plint const decFlag = (sf > SOLFRAC_MIN) + 2*(sf_old > SOLFRAC_MIN);
+          
+          // pcout << "dec " << decFlag << std::endl;
+          
+          switch(decFlag){
+          case 0: // sf == 0 && *sfPtr == 0
+            setToZero(particleData);
+            break; // do nothing
+          case 1: // sf > 0 && *sfPtr == 0
+            setValues(particleData,sf,dx,dy,dz);
+            break;
+          case 2: // sf == 0 && *sfPtr > 0
+            if( id_old == id )
+              setToZero(particleData);
+            break; // else do nothing
+          case 3: // sf > 0 && *sfPtr > 0
+            if( sf > sf_old || id_old == id )
+              setValues(particleData,sf,dx,dy,dz);
+            break; // else do nothing
           }
-        }
-      }
-      
-  }
-
-  template<typename T, template<typename U> class Descriptor>
-  T SetSingleSphere3D<T,Descriptor>::calcSolidFraction(T dx_, T dy_, T dz_, T r_)
-  {
-    plint const slicesPerDim = 5;
-    T const sliceWidth = 1./((T)slicesPerDim-1);
-    T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
-    
-    if (dx_*dx_ + dy_*dy_ + dz_*dz_ > (r_+2)*(r_+2))
-      return 0;
-
-    if (dx_*dx_ + dy_*dy_ + dz_*dz_ < (r_-2)*(r_-2))
-      return 1;
-
-    T r_sq = r_*r_;
-
-    dx_ = dx_ - 0.5;
-    dy_ = dy_ - 0.5;
-    dz_ = dz_ - 0.5;
-
-    plint n(0);
-    for(plint i=0;i<slicesPerDim;i++){
-      T dx = dx_+i*sliceWidth;
-      T dx_sq(dx*dx);
-      for(plint j=0;j<slicesPerDim;j++){
-        T dy = dy_+j*sliceWidth;
-        T dy_sq(dy*dy);
-        for(plint k=0;k<slicesPerDim;k++){
-          T dz = dz_+k*sliceWidth;
-          T dz_sq(dz*dz);
-          n += (plint)(dx_sq + dy_sq + dz_sq < r_sq);
+          // if desired, initialize interior of sphere with sphere velocity
+          if(initVelFlag && sf > SOLFRAC_MAX)
+            cell.defineVelocity(particleData.uPart);
         }
       }
     }
+    
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  T SetSingleSphere3D<T,Descriptor>::calcSolidFraction(T const dx_, T const dy_, T const dz_, T const r_)
+  {
+    // return calcSolidFractionRec(dx_,dy_,dz_,r_);
+
+    static plint const slicesPerDim = 5;
+    static T const sliceWidth = 1./((T)slicesPerDim-1);
+    static T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
+    
+    static const T sqrt3half = (T) sqrt(3)/2.;
+
+    T const dist = dx_*dx_ + dy_*dy_ + dz_*dz_;
+
+    if (dist > (r_+sqrt3half)*(r_+sqrt3half)) return 0;
+    if (dist < (r_-sqrt3half)*(r_-sqrt3half)) return 1;
+
+    T const r_sq = r_*r_;
+    T dx_sq[slicesPerDim],dy_sq[slicesPerDim],dz_sq[slicesPerDim];
+
+    for(plint i=0;i<slicesPerDim;i++){
+      T delta = -0.5 + ((T)i)*sliceWidth;
+      T dx = dx_+delta; dx_sq[i] = dx*dx;
+      T dy = dy_+delta; dy_sq[i] = dy*dy;
+      T dz = dz_+delta; dz_sq[i] = dz*dz;
+    }
+
+    plint n(0);
+    for(plint i=0;i<slicesPerDim;i++){
+      for(plint j=0;j<slicesPerDim;j++){
+        for(plint k=0;k<slicesPerDim;k++){
+          if(dx_sq[i] + dy_sq[j] + dz_sq[k] < r_sq) n++;
+        }
+      }
+    }
+
     return fraction*((T)n);
   }
 
   template<typename T, template<typename U> class Descriptor>
-  void SetSingleSphere3D<T,Descriptor>::setValues(Cell<T,Descriptor>& c, T sf, T dx, T dy, T dz)
+  T SetSingleSphere3D<T,Descriptor>::calcSolidFractionRec(T const dx_ ,T const dy_, T const dz_,
+                                                        T const r_, plint const recursionLevel = 1)
   {
-    T *sfPtr = c.getExternal(Descriptor<T>::ExternalField::volumeFractionBeginsAt);
-    T *idPtr = c.getExternal(Descriptor<T>::ExternalField::particleIdBeginsAt);
-    T *uPtr = c.getExternal(Descriptor<T>::ExternalField::boundaryVelocityBeginsAt);
+    static const plint maxRecDepth = 3;
+    static const T sqrt3half = (T) sqrt(3)/2.;
     
-    uPtr[0] = v[0];
-    uPtr[1] = v[1];
-    uPtr[2] = v[2];
+    const T len = 1./((T)recursionLevel);
+    const T vol = len*len*len;
+    const T cutoffLen = sqrt3half*len;
+
+    T distSq = dx_*dx_ + dy_*dy_ + dz_*dz_;
+
+    if (recursionLevel == maxRecDepth){
+      T r_sq = r_*r_;
+      if(distSq < r_sq) return vol;
+      else return 0;
+    }
+
+    if (distSq > (r_+cutoffLen)*(r_+cutoffLen)) return 0;
+    if (distSq < (r_-cutoffLen)*(r_-cutoffLen)) return vol;
+
+    const T shift = len/4.;
+    plint recursionLevelNew = recursionLevel + 1;
+
+    T dx_plus = dx_+shift, dx_min = dx_+shift;
+    T dy_plus = dy_+shift, dy_min = dy_+shift;
+    T dz_plus = dz_+shift, dz_min = dz_+shift;
+
+    return calcSolidFractionRec(dx_plus,dy_plus,dz_plus,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_min,dy_plus,dz_plus,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_plus,dy_min,dz_plus,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_min,dy_min,dz_plus,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_plus,dy_plus,dz_min,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_min,dy_plus,dz_min,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_plus,dy_min,dz_min,r_,recursionLevelNew)
+      + calcSolidFractionRec(dx_min,dy_min,dz_min,r_,recursionLevelNew);
+
+  }
+
+
+  template<typename T, template<typename U> class Descriptor>
+  void SetSingleSphere3D<T,Descriptor>::setValues(IBdynamicsParticleData<T,Descriptor> &p,
+                                                  T const sf, T const dx, T const dy, T const dz)
+  {    
+    p.uPart.from_cArray(v);
     if(omega != 0){
-      uPtr[0] += omega[1]*dz - omega[2]*dy;
-      uPtr[1] += -omega[0]*dz + omega[2]*dx; 
-      uPtr[2] += omega[0]*dy - omega[1]*dx;
+      p.uPart[0] += omega[1]*dz - omega[2]*dy;
+      p.uPart[1] += -omega[0]*dz + omega[2]*dx; 
+      p.uPart[2] += omega[0]*dy - omega[1]*dx;
     }
-    *sfPtr = sf;
-    *idPtr = (T) id;
-    
-    if(initVelFlag && sf > SOLFRAC_MAX){
-      Array<T,3> u(uPtr[0],uPtr[1],uPtr[2]);
-      T uSqr = uPtr[0]+uPtr[0] + uPtr[1]+uPtr[1] + uPtr[2]+uPtr[2];
-      for(plint i=0;i<Descriptor<T>::q;i++)
-        c[i] = c.computeEquilibrium(i,0.,u,uSqr);
-    }
+    p.solidFraction = sf;
+    p.partId = id;
   }
   
   template<typename T, template<typename U> class Descriptor>
-  void SetSingleSphere3D<T,Descriptor>::setToZero(Cell<T,Descriptor>& c)
+  void SetSingleSphere3D<T,Descriptor>::setToZero(IBdynamicsParticleData<T,Descriptor> &p)
   {
-    T *sfPtr = c.getExternal(Descriptor<T>::ExternalField::volumeFractionBeginsAt);
-    T *idPtr = c.getExternal(Descriptor<T>::ExternalField::particleIdBeginsAt);
-    T *uPtr = c.getExternal(Descriptor<T>::ExternalField::boundaryVelocityBeginsAt);
-    
-    uPtr[0] = 0;
-    uPtr[1] = 0;
-    uPtr[2] = 0;
-    *sfPtr = 0;
-    *idPtr = (T) 0;//-1;
+    p.uPart[0] = 0;
+    p.uPart[1] = 0;
+    p.uPart[2] = 0;
+    p.solidFraction = 0;
+    p.partId = 0;
   }
 
   /*
@@ -189,54 +238,54 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
   {
-    static plint partId = Descriptor<T>::ExternalField::particleIdBeginsAt,
-      fx = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt,
-      fy = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+1,
-      fz = Descriptor<T>::ExternalField::hydrodynamicForceBeginsAt+2;
-
-    Dot3D relativePosition = lattice.getLocation();
-    
-    plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
-
-    plint r=global::mpi().getRank();
+    Dot3D const relativePosition = lattice.getLocation();
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+          Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
+
+
+          // no composite --> no IB
+          if(!dyn->isComposite()) continue;
+          if(dyn->isBoundary())
+            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();
+
+          IBcompositeDynamics<T,Descriptor> *cDyn = 
+            static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
+
+          IBdynamicsParticleData<T,Descriptor> particleData = cDyn->particleData;
           // LIGGGHTS indices start at 1
-          plint id = (plint) round(*(cell.getExternal(partId)));
+          plint const id = particleData.partId;
 
           if(id < 1) continue; // no particle here
-          plint ind = wrapper.lmp->atom->map(id);
+
+          plint const ind = wrapper.lmp->atom->map(id);
           
-          T xGlobal = (T) (relativePosition.x + iX);
-          T yGlobal = (T) (relativePosition.y + iY);
-          T zGlobal = (T) (relativePosition.z + iZ);
+          T const xGlobal = (T) (relativePosition.x + iX);
+          T const yGlobal = (T) (relativePosition.y + iY);
+          T const zGlobal = (T) (relativePosition.z + iZ);
           
-          T forceX = (*(cell.getExternal(fx)));
-          T forceY = (*(cell.getExternal(fy)));
-          T forceZ = (*(cell.getExternal(fz)));
+          T const forceX = particleData.hydrodynamicForce[0];
+          T const forceY = particleData.hydrodynamicForce[1];
+          T const forceZ = particleData.hydrodynamicForce[2];
           
           addForce(ind,0,forceX);
           addForce(ind,1,forceY);
           addForce(ind,2,forceZ);
           
           //TODO: get torque evaluation right for periodic boundary conditions
-          T dx = xGlobal - x[ind][0];
-          T dy = yGlobal - x[ind][1];
-          T dz = zGlobal - x[ind][2];
+          T const dx = xGlobal - x[ind][0];
+          T const dy = yGlobal - x[ind][1];
+          T const dz = zGlobal - x[ind][2];
 
-          // minimum image convention
-          // if(dx>nx/2) dx -= nx; if(dx<-nx/2) dx += nx;
-          // if(dy>ny/2) dy -= ny; if(dy<-ny/2) dy += ny;
-          // if(dz>nz/2) dz -= nz; if(dz<-nz/2) dz += nz;
-          
           addTorque(ind,0,dy*forceZ - dz*forceY);
           addTorque(ind,1,-dx*forceZ + dz*forceX);
           addTorque(ind,2,dx*forceY - dy*forceX);
           
+          cDyn->particleData = particleData;
         }
       }
     }
@@ -244,12 +293,12 @@ namespace plb{
         
 
   template<typename T, template<typename U> class Descriptor>
-  void SumForceTorque3D<T,Descriptor>::addForce(plint partId, plint coord, T value)
+  void SumForceTorque3D<T,Descriptor>::addForce(plint const partId, plint const coord, T const value)
   {
     force[3*partId+coord] += value;
   }
   template<typename T, template<typename U> class Descriptor>
-  void SumForceTorque3D<T,Descriptor>::addTorque(plint partId, plint coord, T value)
+  void SumForceTorque3D<T,Descriptor>::addTorque(plint const partId, plint const coord, T const value)
   {
     torque[3*partId+coord] += value;
   }
@@ -280,7 +329,7 @@ namespace plb{
     plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
     for(plint iS=0;iS<wrapper.getNumParticles();iS++){
       T x[3],v[3],omega[3];
-      T r; // id is of type T because external variables are of this type
+      T r; 
       plint id = (plint) round( (T)wrapper.id[iS][0] + 0.1 );
 
       for(plint i=0;i<3;i++){

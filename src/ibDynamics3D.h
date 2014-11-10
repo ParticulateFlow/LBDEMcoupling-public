@@ -24,12 +24,230 @@
 
 namespace plb {
 
-template<typename T, template<typename U> class Descriptor>
+  template<typename T, template<typename U> class Descriptor>
+  struct IBdynamicsParticleData {
+  public:
+    IBdynamicsParticleData() : partId(0),solidFraction(0.) 
+    {
+      uPart.resetToZero();
+      hydrodynamicForce.resetToZero();
+    }
+    IBdynamicsParticleData(IBdynamicsParticleData const &orig)
+      : partId(orig.partId), solidFraction(orig.solidFraction),
+        uPart(orig.uPart), hydrodynamicForce(orig.hydrodynamicForce) {}
+    plint partId;
+    T solidFraction;
+    Array<T,Descriptor<T>::d> uPart;
+    Array<T,Descriptor<T>::d> hydrodynamicForce;
+  };
+  
+
+  template<typename T, template<typename U> class Descriptor>
+  class IBcompositeDynamics : public CompositeDynamics<T,Descriptor> {
+  public:
+    IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_);
+    IBcompositeDynamics(const IBcompositeDynamics &orig);
+    IBcompositeDynamics(HierarchicUnserializer &unserializer);
+    ~IBcompositeDynamics();
+
+    virtual IBcompositeDynamics<T,Descriptor>* clone() const;    
+    
+    virtual int getId() const;
+
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    virtual void prepareCollision(Cell<T,Descriptor>& cell);
+    virtual void collide(Cell<T,Descriptor>& cell,  BlockStatistics& statistics);
+
+    // int partId;
+    // T solidFraction;
+    // Array<T,Descriptor<T>::d> uPart;
+    // Array<T,Descriptor<T>::d> hydrodynamicForce;
+    IBdynamicsParticleData<T,Descriptor> particleData;
+    Array<T,Descriptor<T>::q> fPre; // pre-collision populations
+    
+    virtual void defineVelocity(Cell<T,Descriptor>& cell, 
+                                Array<T,Descriptor<T>::d> const& u);
+
+  private:
+    static int id;    
+
+  };
+
+  template<typename T, template<typename U> class Descriptor>
+  int IBcompositeDynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
+
+  template<typename T, template<typename U> class Descriptor>
+  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_)
+    // automaticPrepareCollision is set to true
+    // possible optimization in the future: call this from the 
+    // processor that sets solid fraction, particle velocity etc if needed
+    : CompositeDynamics<T,Descriptor>(baseDynamics_,true), 
+      particleData()
+  { }
+  
+  template<typename T, template<typename U> class Descriptor>
+  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(HierarchicUnserializer &unserializer)
+    : CompositeDynamics<T,Descriptor>(0,false)
+  {
+    // pcout << "entering serialize constructor" << std::endl;
+    unserialize(unserializer);
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(const IBcompositeDynamics &orig)
+    : CompositeDynamics<T,Descriptor>(orig),
+      particleData(orig.particleData),
+      fPre(orig.fPre)
+  { }
+  
+  template<typename T, template<typename U> class Descriptor>
+  IBcompositeDynamics<T,Descriptor>::~IBcompositeDynamics() {}
+  
+  template<typename T, template<typename U> class Descriptor>
+  IBcompositeDynamics<T,Descriptor>* IBcompositeDynamics<T,Descriptor>::clone() const {
+    return new IBcompositeDynamics<T,Descriptor>(*this);
+  }
+  
+  template<typename T, template<typename U> class Descriptor>
+  int IBcompositeDynamics<T,Descriptor>::getId() const
+  {
+    return id;
+  }
+  
+  template<typename T, template<typename U> class Descriptor>
+  void IBcompositeDynamics<T,Descriptor>::serialize(HierarchicSerializer &serializer) const
+  {
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      serializer.addValue(particleData.uPart[i]);
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      serializer.addValue(particleData.hydrodynamicForce[i]);
+    
+    serializer.addValue(particleData.solidFraction);
+
+    T *partIdPtr = (T*) (&particleData.partId);
+    serializer.addValue((T)particleData.partId);
+
+    CompositeDynamics<T,Descriptor>::serialize(serializer);
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void IBcompositeDynamics<T,Descriptor>::unserialize(HierarchicUnserializer &unserializer)
+  {
+    PLB_PRECONDITION( unserializer.getId() == this->getId() );
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      unserializer.readValue(particleData.uPart[i]);
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      unserializer.readValue(particleData.hydrodynamicForce[i]);
+
+    unserializer.readValue(particleData.solidFraction);
+
+    T partIdDummy;
+    unserializer.readValue(partIdDummy);
+    plint *partIdPtr = (plint*) (&partIdDummy);
+    particleData.partId = *partIdPtr;
+
+    CompositeDynamics<T,Descriptor>::unserialize(unserializer);
+
+  }
+  
+  template<typename T, template<typename U> class Descriptor>
+  void IBcompositeDynamics<T,Descriptor>::prepareCollision(Cell<T,Descriptor>& cell)
+  {
+
+    if(particleData.solidFraction > SOLFRAC_MIN)
+      fPre = cell.getRawPopulations();
+
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void IBcompositeDynamics<T,Descriptor>::defineVelocity(Cell<T,Descriptor>& cell, 
+                                                         Array<T,Descriptor<T>::d> const& u)
+  {
+    Array<T,Descriptor<T>::q> fEq;
+    T const rhoBar = 1.;
+    T const uSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(u); 
+    CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,0.,u,uSqr);
+    for(plint i=0;i<Descriptor<T>::q;i++)
+      cell[i] = fEq[i];
+  }
+  
+  /// Implementation of the collision step
+  template<typename T, template<typename U> class Descriptor>
+  void IBcompositeDynamics<T,Descriptor>::collide(Cell<T,Descriptor>& cell,
+                                                  BlockStatistics& statistics)
+  {
+
+    prepareCollision(cell);
+
+    if(particleData.solidFraction < SOLFRAC_MAX)
+      CompositeDynamics<T,Descriptor>::getBaseDynamics().collide(cell,statistics);
+    
+    if(particleData.solidFraction < SOLFRAC_MIN)
+      return;
+
+    particleData.hydrodynamicForce.resetToZero();
+    
+    // compute equilibrium distributions for solid velocity
+    Array<T,Descriptor<T>::q> fEq;
+    T const rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
+    T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(particleData.uPart); 
+    CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,0.,particleData.uPart,uPartSqr);
+    
+    if(particleData.solidFraction > SOLFRAC_MAX){
+      
+      for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
+        plint const shift = Descriptor<T>::q/2;
+        plint iOpposite = iPop <= shift ? iPop + shift : iPop - shift;
+        
+        T coll = -0.5*(fPre[iOpposite] - fEq[iOpposite] + fEq[iPop] - fPre[iPop]);
+        
+        cell[iPop] = fPre[iPop] - coll;
+
+        for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
+          particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[iPop][iDim]*coll;
+      }
+    } else {
+      T const omega = CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega();
+      T const ooo = 1./omega-0.5;
+      T const B = particleData.solidFraction*ooo/((1.- particleData.solidFraction) + ooo);
+      T const oneMinB = 1. - B;
+
+      cell[0] = fPre[0] + oneMinB*(cell[0] - fPre[0]);
+      
+      for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
+        plint const shift = Descriptor<T>::q/2;
+        plint iOpposite = iPop <= shift ? iPop + shift : iPop - shift;
+
+        T coll = -B*0.5*(fPre[iOpposite] - fEq[iOpposite] + fEq[iPop] - fPre[iPop]);
+
+        cell[iPop] = fPre[iPop] + oneMinB*(cell[iPop] - fPre[iPop]) - coll;
+
+        for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
+          particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[iPop][iDim]*coll;
+
+      }
+    }
+    
+  }
+
+
+  /* ************************************************************************* */
+  /* IB dynamics standalone stuff                                              */
+  /* ************************************************************************* */
+
+  template<typename T, template<typename U> class Descriptor>
   class IBdynamics : public BGKdynamics<T,Descriptor> {
   public:
-  /* *************** Construction / Destruction ************************ */
+    /* *************** Construction / Destruction ************************ */
     IBdynamics(T omega_);
-
+    
     /// Clone the object on its dynamic type.
     virtual IBdynamics<T,Descriptor>* clone() const;
 
