@@ -47,8 +47,9 @@ using namespace plb;
 using namespace std;
 
 typedef double T;
-#define DESCRIPTOR descriptors::ImmersedBoundaryD3Q19Descriptor
-#define DYNAMICS IBdynamics<T, DESCRIPTOR>(parameters.getOmega())
+#define DESCRIPTOR descriptors::D3Q19Descriptor
+#define BASEDYNAMICS BGKdynamics<T, DESCRIPTOR>(parameters.getOmega())
+#define DYNAMICS IBcompositeDynamics<T, DESCRIPTOR>( new BASEDYNAMICS )
 
 void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
               IncomprFlowParam<T> const& parameters,
@@ -66,9 +67,14 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   subtractInPlace(p,1.);
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
   
+  MultiScalarField3D<T> tmp(lattice);
+  GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>::Quantity sf = 
+    GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>::SolidFraction;
+  applyProcessingFunctional(new GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>(sf),
+                            lattice.getBoundingBox(),lattice,tmp);
+  
+  vtkOut.writeData<float>(tmp,"solidfraction",1. ); 
  
-  vtkOut.writeData<float>(*computeExternalScalar(lattice,DESCRIPTOR<T>::ExternalField::volumeFractionBeginsAt),
-                          "SolidFraction",1);
   pcout << "wrote " << fname << std::endl;
 }
 
@@ -93,17 +99,20 @@ int main(int argc, char* argv[]) {
     plbInit(&argc, &argv);
 
     plint N;
-    T deltaP,v_frac,d_part, uMax;    
+    T deltaP,v_frac,d_part, uMax, channelLength;    
     std::string outDir;
+    T runtime;   
 
-    // argument parsing
+	// command line parameter parsing 
     try {
         global::argv(1).read(N);
         global::argv(2).read(deltaP);
         global::argv(3).read(v_frac);
         global::argv(4).read(d_part);
-	global::argv(5).read(uMax);
-        global::argv(6).read(outDir);
+        global::argv(5).read(uMax);
+        global::argv(6).read(channelLength);
+        global::argv(7).read(runtime);
+        global::argv(8).read(outDir);
     } catch(PlbIOException& exception) {
         pcout << exception.what() << endl;
         pcout << "Command line arguments:\n";
@@ -112,7 +121,9 @@ int main(int argc, char* argv[]) {
         pcout << "3 : v_frac\n";
         pcout << "4 : d_part\n";
         pcout << "5 : uMax\n";
-        pcout << "6 : outDir\n";
+        pcout << "6 : channel length as multiple of width\n";
+        pcout << "7 : runtime as multiple of Stokes time\n";
+        pcout << "8 : outDir\n";
         exit(1);
     }
     
@@ -127,7 +138,6 @@ int main(int argc, char* argv[]) {
     argv_lmp = new char*[1];
     argv_lmp[0] = argv[0];
 
-    
     LiggghtsCouplingWrapper wrapper(argv,global::mpi().getGlobalCommunicator());
 
     // this is equivalent to the variable command in LIGGGHTS/LAMMPS
@@ -139,7 +149,9 @@ int main(int argc, char* argv[]) {
 
     const T nu_f = 1e-3;
 
-    const T lx = 0.8, ly = 0.2, lz = 0.2;
+    const T lx = 0.2*channelLength, ly = 0.2, lz = 0.2;
+
+	pcout << "******************* " << channelLength << std::endl;
 
     T gradP = deltaP/lx;
     T lx_eff = lx;//*(T)(N-1)/(T)N;
@@ -149,7 +161,8 @@ int main(int argc, char* argv[]) {
     // valid for square channel, see VDI Wärmeatlas
     T nu_rel = 1. + v_frac; // Einstein: 2.5 - be more conservative here
     T u_phys = 0.08 * gradP*lz_eff*lz_eff/(nu_f*rho_f*nu_rel); 
-
+    // Stokes time - use for estimating calculation time
+    T t_stokes = d_part / (2.*u_phys); 
     
     PhysUnits3D<T> units(lz,u_phys,nu_f,lx,ly,lz,N,uMax,rho_f);
 
@@ -170,8 +183,10 @@ int main(int argc, char* argv[]) {
                defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
                new DYNAMICS );
 
-    const T maxT = 50.;//(T)1000.;
-    const T vtkT = 5.;
+    defineDynamics(lattice,lattice.getBoundingBox(),new DYNAMICS);
+
+    const T maxT = (T)ceil(runtime*t_stokes+0.5);
+    const T vtkT = 0.2;
     const T gifT = 100;
     const T logT = 0.000000002;
 
@@ -222,7 +237,7 @@ int main(int argc, char* argv[]) {
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
     wrapper.setVariable("dmp_dir",demOutDir);
 
-    // again executing input file
+    // executing second input file
     wrapper.execFile("in2.lbdem");
     // runs LIGGGHTS up to a certain step. Equivalent to the "run upto" command in LIGGGHTS/LAMMPS.
     wrapper.runUpto(demSubsteps-1);
