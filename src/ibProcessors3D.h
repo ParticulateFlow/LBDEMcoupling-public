@@ -97,6 +97,13 @@ namespace plb{
   void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
                               LiggghtsCouplingWrapper &wrapper,
                               PhysUnits3D<T> const &units,
+                              std::vector<plint> &excludeType,
+                              bool initVelFlag);
+
+  template<typename T, template<typename U> class Descriptor>
+  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
+                              LiggghtsCouplingWrapper &wrapper,
+                              PhysUnits3D<T> const &units,
                               bool initVelFlag);
 
   template<typename T, template<typename U> class Descriptor>

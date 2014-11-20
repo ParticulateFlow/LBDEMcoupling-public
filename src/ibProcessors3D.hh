@@ -553,10 +553,13 @@ namespace plb{
     delete[] torque;
   }
 
+
+
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
                               LiggghtsCouplingWrapper &wrapper,
                               PhysUnits3D<T> const &units,
+                              std::vector<plint> &excludeType,
                               bool initVelFlag)
   {
     plint r = global::mpi().getRank();
@@ -570,6 +573,18 @@ namespace plb{
     plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
 
     for(plint iS=0;iS<nPart;iS++){
+      plint type = (plint)wrapper.lmp->atom->type[iS];
+      bool excludeFlag(false);
+      for(plint iT=0;iT<excludeType.size();iT++){
+        //        pcout << iS << " " << type << " " << excludeType[iT] << std::endl;
+        if(type == excludeType[iT]){
+          excludeFlag = true;
+          break;
+        }
+      }
+
+      if(excludeFlag) continue;
+
       T x[3],v[3],omega[3];
       T r;
       plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
@@ -605,6 +620,18 @@ namespace plb{
     applyProcessingFunctional(new AttributeFunctional<T,Descriptor>(),lattice.getBoundingBox(),lattice);
 
   }
+
+  template<typename T, template<typename U> class Descriptor>
+  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
+                              LiggghtsCouplingWrapper &wrapper,
+                              PhysUnits3D<T> const &units,
+                              bool initVelFlag)
+  {
+    std::vector<plint> dummyExcludeType;
+    setSpheresOnLatticeNew(lattice,wrapper,units,dummyExcludeType,initVelFlag);
+  }
+
+
 
   template<typename T, template<typename U> class Descriptor>
   void getForcesFromLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
