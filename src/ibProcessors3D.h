@@ -55,8 +55,6 @@ namespace plb{
     int id;
     bool initVelFlag;
     T calcSolidFraction(T const dx_, T const dy_, T const dz_, T const r_);
-    T calcSolidFractionRec(T const dx_ ,T const dy_, T const dz_, T const r_,
-                           plint const recursionLevel);
     void setValues(IBdynamicsParticleData<T,Descriptor> &p, 
                    T const sf, T const dx, T const dy, T const dz);
     void setToZero(IBdynamicsParticleData<T,Descriptor> &p);
@@ -141,7 +139,7 @@ namespace plb{
       : which(which_) {}
     
     virtual void process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
-                         ScalarField3D<T2>& solfrac) 
+                         ScalarField3D<T2>& data) 
     {
       for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -164,7 +162,9 @@ namespace plb{
               }
 
             }
-            solfrac.get(iX,iY,iZ) = val;
+            data.get(iX,iY,iZ) = val;
+            // if(val != 0)
+            //   std::cout << iX << " " << iY << " " << iZ << " | " << val << std::endl;;
           }
         }
       }
@@ -173,6 +173,59 @@ namespace plb{
     GetScalarQuantityFromDynamicsFunctional<T1,Descriptor,T2>* clone() const
     {
       return new GetScalarQuantityFromDynamicsFunctional<T1,Descriptor,T2>(*this);
+    }
+    void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {
+      modified[0] = modif::nothing;
+      modified[1] = modif::staticVariables;
+    }
+
+    
+  };
+
+  template<typename T1, template<typename U> class Descriptor, typename T2, int nDim>
+  struct GetVectorQuantityFromDynamicsFunctional : public BoxProcessingFunctional3D_LT<T1,Descriptor,T2,nDim> {
+  public:
+
+    enum Quantity { ParticleVelocity, HydrodynamicForce };
+    Quantity which;
+    GetVectorQuantityFromDynamicsFunctional(Quantity const which_)
+      : which(which_) {}
+    
+    virtual void process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
+                         TensorField3D<T2,nDim>& solfrac) 
+    {
+      for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+          for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+            
+            Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
+            Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
+            Array<T2,nDim> val;
+            val.resetToZero();
+            if(dyn->isComposite()){
+              IBcompositeDynamics<T1,Descriptor> *cDyn = 
+                static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
+              switch(which){
+              case ParticleVelocity:
+                val = cDyn->particleData.uPart;
+                break;
+              case HydrodynamicForce:
+                val = cDyn->particleData.hydrodynamicForce;
+                break;
+
+              }
+
+            }
+            solfrac.get(iX,iY,iZ) = val;
+          }
+        }
+      }
+    }
+
+    GetVectorQuantityFromDynamicsFunctional<T1,Descriptor,T2,nDim>* clone() const
+    {
+      return new GetVectorQuantityFromDynamicsFunctional<T1,Descriptor,T2,nDim>(*this);
     }
     void getTypeOfModification(std::vector<modif::ModifT>& modified) const
     {

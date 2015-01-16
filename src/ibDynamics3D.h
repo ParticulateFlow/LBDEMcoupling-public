@@ -186,32 +186,38 @@ namespace plb {
 
     prepareCollision(cell);
 
-    if(particleData.solidFraction < SOLFRAC_MAX)
+    particleData.hydrodynamicForce.resetToZero();
+
+    if(particleData.solidFraction <= SOLFRAC_MAX)
       CompositeDynamics<T,Descriptor>::getBaseDynamics().collide(cell,statistics);
     
     if(particleData.solidFraction < SOLFRAC_MIN)
       return;
 
-    particleData.hydrodynamicForce.resetToZero();
     
     // compute equilibrium distributions for solid velocity
-    Array<T,Descriptor<T>::q> fEq;
+    Array<T,Descriptor<T>::q> fEqSolid;
+
     T const rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
-    T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(particleData.uPart); 
-    CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,0.,particleData.uPart,uPartSqr);
+    Array<T,Descriptor<T>::d> uPart = particleData.uPart*(1.+rhoBar);
+    T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
+    CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEqSolid,rhoBar,uPart,uPartSqr);
+
+    // T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(particleData.uPart); 
+    // CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,0.,particleData.uPart,uPartSqr);
     
     if(particleData.solidFraction > SOLFRAC_MAX){
-      
+      cell[0] = fPre[0];
       for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
         plint const shift = Descriptor<T>::q/2;
         plint iOpposite = iPop <= shift ? iPop + shift : iPop - shift;
         
-        T coll = -0.5*(fPre[iOpposite] - fEq[iOpposite] + fEq[iPop] - fPre[iPop]);
+        T coll = 0.5*(fPre[iOpposite] - fEqSolid[iOpposite] + fEqSolid[iPop] - fPre[iPop]);
         
-        cell[iPop] = fPre[iPop] - coll;
+        cell[iPop] = fPre[iPop] + coll;
 
         for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-          particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[iPop][iDim]*coll;
+          particleData.hydrodynamicForce[iDim] -= Descriptor<T>::c[iPop][iDim]*coll;
       }
     } else {
       T const omega = CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega();
@@ -225,13 +231,12 @@ namespace plb {
         plint const shift = Descriptor<T>::q/2;
         plint iOpposite = iPop <= shift ? iPop + shift : iPop - shift;
 
-        T coll = -B*0.5*(fPre[iOpposite] - fEq[iOpposite] + fEq[iPop] - fPre[iPop]);
+        T coll = -B*0.5*(fPre[iOpposite] - fEqSolid[iOpposite] + fEqSolid[iPop] - fPre[iPop]);
 
         cell[iPop] = fPre[iPop] + oneMinB*(cell[iPop] - fPre[iPop]) - coll;
 
         for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
           particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[iPop][iDim]*coll;
-
       }
     }
     

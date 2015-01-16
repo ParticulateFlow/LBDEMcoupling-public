@@ -55,14 +55,18 @@ namespace plb{
   {
     Dot3D const relativePosition = lattice.getLocation();
 
+    // std::cout << "entering SetSingleSphere::process on proc " << global::mpi().getRank() << "\n"
+    //           << "id " << id << " | pos " << x[0] << " " << x[1] << " " << x[2] << std::endl;
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
-
+          // pcout << "enter point " << iX << " " << iY << " " << iZ << std::endl;
           // no composite --> no IB
           if(!dyn->isComposite()) continue;
+          // pcout << "is composite" << std::endl;
           if(dyn->isBoundary())
             dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();
 
@@ -82,6 +86,7 @@ namespace plb{
           T const dx = xGlobal - x[0];
           T const dy = yGlobal - x[1];
           T const dz = zGlobal - x[2];
+          // T const sf = calcSolidFraction(dx,dy,dz,r);
           T const sf = calcSolidFraction(dx,dy,dz,r);
           
           // pcout << iX << " " << iY << " " << iZ << " | "
@@ -92,17 +97,17 @@ namespace plb{
           // pcout << "dec " << decFlag << std::endl;
           
           switch(decFlag){
-          case 0: // sf == 0 && *sfPtr == 0
+          case 0: // sf == 0 && sf_old == 0
             setToZero(particleData);
             break; // do nothing
-          case 1: // sf > 0 && *sfPtr == 0
+          case 1: // sf > 0 && sf_old == 0
             setValues(particleData,sf,dx,dy,dz);
             break;
-          case 2: // sf == 0 && *sfPtr > 0
-            if( id_old == id )
+          case 2: // sf == 0 && sf_old > 0
+            if( id_old == id ) // then particle has left this cell
               setToZero(particleData);
             break; // else do nothing
-          case 3: // sf > 0 && *sfPtr > 0
+          case 3: // sf > 0 && sf_old > 0
             if( sf > sf_old || id_old == id )
               setValues(particleData,sf,dx,dy,dz);
             break; // else do nothing
@@ -121,25 +126,31 @@ namespace plb{
   {
     // return calcSolidFractionRec(dx_,dy_,dz_,r_);
 
-    static plint const slicesPerDim = 5;
-    static T const sliceWidth = 1./((T)slicesPerDim-1);
-    static T const fraction = 1./((T)slicesPerDim*slicesPerDim*slicesPerDim);
+    static plint const slicesPerDim = 15;
+    static T const sliceWidth = 1./((T)slicesPerDim);
+    static T const fraction = 1./((T)(slicesPerDim*slicesPerDim*slicesPerDim));
     
-    static const T sqrt3half = (T) sqrt(3)/2.;
+    // should be sqrt(3.)/2.
+    // add a little to avoid roundoff errors
+    static const T sqrt3half = (T) sqrt(3.1)/2.; 
 
     T const dist = dx_*dx_ + dy_*dy_ + dz_*dz_;
 
-    if (dist > (r_+sqrt3half)*(r_+sqrt3half)) return 0;
-    if (dist < (r_-sqrt3half)*(r_-sqrt3half)) return 1;
+    T const r_p = r_ + sqrt3half;
+    if (dist > r_p*r_p) return 0;
+
+    T const r_m = r_ - sqrt3half;
+    if (dist < r_m*r_m) return 1;
 
     T const r_sq = r_*r_;
     T dx_sq[slicesPerDim],dy_sq[slicesPerDim],dz_sq[slicesPerDim];
 
+    // pre-calculate d[xyz]_sq for efficiency
     for(plint i=0;i<slicesPerDim;i++){
-      T delta = -0.5 + ((T)i)*sliceWidth;
-      T dx = dx_+delta; dx_sq[i] = dx*dx;
-      T dy = dy_+delta; dy_sq[i] = dy*dy;
-      T dz = dz_+delta; dz_sq[i] = dz*dz;
+      T const delta = -0.5 + ((T)i+0.5)*sliceWidth;
+      T const dx = dx_+delta; dx_sq[i] = dx*dx;
+      T const dy = dy_+delta; dy_sq[i] = dy*dy;
+      T const dz = dz_+delta; dz_sq[i] = dz*dz;
     }
 
     plint n(0);
@@ -154,45 +165,6 @@ namespace plb{
     return fraction*((T)n);
   }
 
-  template<typename T, template<typename U> class Descriptor>
-  T SetSingleSphere3D<T,Descriptor>::calcSolidFractionRec(T const dx_ ,T const dy_, T const dz_,
-                                                        T const r_, plint const recursionLevel = 1)
-  {
-    static const plint maxRecDepth = 3;
-    static const T sqrt3half = (T) sqrt(3)/2.;
-    
-    const T len = 1./((T)recursionLevel);
-    const T vol = len*len*len;
-    const T cutoffLen = sqrt3half*len;
-
-    T distSq = dx_*dx_ + dy_*dy_ + dz_*dz_;
-
-    if (recursionLevel == maxRecDepth){
-      T r_sq = r_*r_;
-      if(distSq < r_sq) return vol;
-      else return 0;
-    }
-
-    if (distSq > (r_+cutoffLen)*(r_+cutoffLen)) return 0;
-    if (distSq < (r_-cutoffLen)*(r_-cutoffLen)) return vol;
-
-    const T shift = len/4.;
-    plint recursionLevelNew = recursionLevel + 1;
-
-    T dx_plus = dx_+shift, dx_min = dx_+shift;
-    T dy_plus = dy_+shift, dy_min = dy_+shift;
-    T dz_plus = dz_+shift, dz_min = dz_+shift;
-
-    return calcSolidFractionRec(dx_plus,dy_plus,dz_plus,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_min,dy_plus,dz_plus,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_plus,dy_min,dz_plus,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_min,dy_min,dz_plus,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_plus,dy_plus,dz_min,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_min,dy_plus,dz_min,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_plus,dy_min,dz_min,r_,recursionLevelNew)
-      + calcSolidFractionRec(dx_min,dy_min,dz_min,r_,recursionLevelNew);
-
-  }
 
 
   template<typename T, template<typename U> class Descriptor>
@@ -239,7 +211,7 @@ namespace plb{
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
   {
     Dot3D const relativePosition = lattice.getLocation();
-    
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -256,7 +228,7 @@ namespace plb{
           IBcompositeDynamics<T,Descriptor> *cDyn = 
             static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
 
-          IBdynamicsParticleData<T,Descriptor> particleData = cDyn->particleData;
+          IBdynamicsParticleData<T,Descriptor> const particleData = cDyn->particleData;
           // LIGGGHTS indices start at 1
           plint const id = particleData.partId;
 
@@ -267,25 +239,36 @@ namespace plb{
           T const xGlobal = (T) (relativePosition.x + iX);
           T const yGlobal = (T) (relativePosition.y + iY);
           T const zGlobal = (T) (relativePosition.z + iZ);
+
+          T const dx = xGlobal - x[ind][0];
+          T const dy = yGlobal - x[ind][1];
+          T const dz = zGlobal - x[ind][2];
           
           T const forceX = particleData.hydrodynamicForce[0];
           T const forceY = particleData.hydrodynamicForce[1];
           T const forceZ = particleData.hydrodynamicForce[2];
           
+          T const torqueX = dy*forceZ - dz*forceY;
+          T const torqueY = -dx*forceZ + dz*forceX;
+          T const torqueZ = dx*forceY - dy*forceX;
+
           addForce(ind,0,forceX);
           addForce(ind,1,forceY);
           addForce(ind,2,forceZ);
           
-          //TODO: get torque evaluation right for periodic boundary conditions
-          T const dx = xGlobal - x[ind][0];
-          T const dy = yGlobal - x[ind][1];
-          T const dz = zGlobal - x[ind][2];
 
-          addTorque(ind,0,dy*forceZ - dz*forceY);
-          addTorque(ind,1,-dx*forceZ + dz*forceX);
-          addTorque(ind,2,dx*forceY - dy*forceX);
+          // pcerr << "proc "
+          //   /*<< iX << " " << iY << " " << iZ << " | "*/
+          //       << dx << " " << dy << " " << dz << " | "
+          //       << forceX << " " << forceY << " " << forceZ << " | "
+          //       << torqueX << " " << torqueY << " " << torqueZ << " | "
+          //       << particleData.solidFraction << std::endl;
+
+          addTorque(ind,0,torqueX);
+          addTorque(ind,1,torqueY);
+          addTorque(ind,2,torqueZ);
           
-          cDyn->particleData = particleData;
+          //cDyn->particleData = particleData;
         }
       }
     }
@@ -692,6 +675,13 @@ namespace plb{
     std::map<plint,Box3D> blockmap = lattice.getSparseBlockStructure().getBulks();
     Box3D localBB = blockmap[iBlock];
     applyProcessingFunctional(sft,localBB, lattice);
+
+    // for(plint i=0;i<force.size();i++)
+    //   pcerr << force[i] << " ";
+    // pcerr << "|";
+    // for(plint i=0;i<torque.size();i++)
+    //   pcerr << torque[i] << " ";
+    // pcerr << std::endl;
 
     // // experimental....
     // SparseBlockStructure3D sparseBlock = lattice.getSparseBlockStructure();
