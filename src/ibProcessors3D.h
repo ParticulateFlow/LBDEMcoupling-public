@@ -33,12 +33,10 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   struct SetSingleSphere3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
-    SetSingleSphere3D(T *x_, T *v_, T *omega_, T r_, int id_, bool initVelFlag_)
+    SetSingleSphere3D(T *x_, T *v_, T *omega_, T r_, int id_, bool initVelFlag_ = false)
       : x(x_),v(v_),omega(omega_),r(r_),id(id_), initVelFlag(initVelFlag_) {}
-    SetSingleSphere3D(T *x_, T *v_, T *omega_, T r_, int id_)
-      : x(x_),v(v_),omega(omega_),r(r_),id(id_), initVelFlag(false) {}
-    SetSingleSphere3D(T *x_, T *v_, T r_, int id_)
-      : x(x_),v(v_),omega(0),r(r_),id(id_), initVelFlag(false) {}
+  SetSingleSphere3D(T *x_, T *v_, T r_, int id_, bool initVelFlag_ = false)
+      : x(x_),v(v_),omega(0),r(r_),id(id_), initVelFlag(initVelFlag_) {}
     SetSingleSphere3D(const SetSingleSphere3D &orig)
       : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),
       id(orig.id),initVelFlag(orig.initVelFlag) {}

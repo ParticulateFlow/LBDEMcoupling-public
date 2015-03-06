@@ -559,9 +559,9 @@ namespace plb{
 
     
     FixMultisphere *fixMultisphere = 0;
-    plint nms = modify->n_fixes_style("multisphere");
+    plint nms = wrapper.lmp->modify->n_fixes_style("multisphere");
     if(nms)
-      fixMultisphere = static_cast<FixMultisphere*>(modify->find_fix_style("multisphere",0));
+      fixMultisphere = static_cast<FixMultisphere*>(wrapper.lmp->modify->find_fix_style("multisphere",0));
 
 
     for(plint iS=0;iS<nPart;iS++){
@@ -581,14 +581,16 @@ namespace plb{
       T r;
       plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
 
-      if(FixMultisphere && FixMultisphere->belongs_to(id) >= 0){
+      SetSingleSphere3D<T,Descriptor> *sss = 0;
+
+      // if particle belongs to multisphere, don't use omega
+      if(fixMultisphere && fixMultisphere->belongs_to(id) >= 0){
         for(plint i=0;i<3;i++){
           x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
           v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
         }
         r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-        SetSingleSphere3D<T,Descriptor> *sss 
-          = new SetSingleSphere3D<T,Descriptor>(x,v,r,id,initVelFlag);
+	sss = new SetSingleSphere3D<T,Descriptor>(x,v,r,id,initVelFlag);
       } else {
         for(plint i=0;i<3;i++){
           x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
@@ -596,8 +598,7 @@ namespace plb{
           omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
         }
         r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-        SetSingleSphere3D<T,Descriptor> *sss 
-          = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
+        sss  = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
       }
       Box3D sss_box = sss->getBoundingBox();
       
