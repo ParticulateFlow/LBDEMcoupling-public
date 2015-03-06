@@ -599,7 +599,10 @@ namespace plb{
         T com[3];
 	fixMultisphere->data().xcm(com,msBody);
 	fixMultisphere->data().vcm(v,msBody);
-
+        for(plint i=0;i<3;i++){
+          com[i] = units.getLbLength(com[i]);
+          v[i] = units.getLbVel(v[i]);
+        }
 	sss = new SetSingleSphere3D<T,Descriptor>(x,v,omega,com,r,id,initVelFlag);
 
       } else {
@@ -610,6 +613,7 @@ namespace plb{
         // use sphere center as center of mass for simple spheres
         sss  = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
       }
+
       Box3D sss_box = sss->getBoundingBox();
       
       // only go over part that lies on local processor
