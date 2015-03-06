@@ -87,6 +87,10 @@ namespace plb{
           T const dx = xGlobal - x[0];
           T const dy = yGlobal - x[1];
           T const dz = zGlobal - x[2];
+
+          T const dx_com = xGlobal - com[0];
+          T const dy_com = yGlobal - com[1];
+          T const dz_com = zGlobal - com[2];
           // T const sf = calcSolidFraction(dx,dy,dz,r);
           T const sf = calcSolidFraction(dx,dy,dz,r);
           
@@ -102,7 +106,7 @@ namespace plb{
             setToZero(particleData);
             break; // do nothing
           case 1: // sf > 0 && sf_old == 0
-            setValues(particleData,sf,dx,dy,dz);
+            setValues(particleData,sf,dx_com,dy_com,dz_com);
             break;
           case 2: // sf == 0 && sf_old > 0
             if( id_old == id ) // then particle has left this cell
@@ -110,7 +114,7 @@ namespace plb{
             break; // else do nothing
           case 3: // sf > 0 && sf_old > 0
             if( sf > sf_old || id_old == id )
-              setValues(particleData,sf,dx,dy,dz);
+              setValues(particleData,sf,dx_com,dy_com,dz_com);
             break; // else do nothing
           }
           // if desired, initialize interior of sphere with sphere velocity
@@ -563,6 +567,10 @@ namespace plb{
     if(nms)
       fixMultisphere = static_cast<FixMultisphere*>(wrapper.lmp->modify->find_fix_style("multisphere",0));
 
+    double *xcm = fixMultisphere ? fixMultisphere->multisphere_.xcm_.begin() : 0;
+    double *vcm = fixMultisphere ? fixMultisphere->multisphere_.vcm_.begin() : 0;
+    double *omegacm = fixMultisphere ? fixMultisphere->multisphere_.omega_.begin() : 0;
+    
 
     for(plint iS=0;iS<nPart;iS++){
       plint type = (plint)wrapper.lmp->atom->type[iS];
@@ -583,22 +591,31 @@ namespace plb{
 
       SetSingleSphere3D<T,Descriptor> *sss = 0;
 
+      for(plint i=0;i<3;i++){
+        x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+      }
+
+      plint msBody = fixMultisphere ? fixMultisphere->belongs_to(id) : -1;
+
       // if particle belongs to multisphere, don't use omega
-      if(fixMultisphere && fixMultisphere->belongs_to(id) >= 0){
+      if(msBody > -1){
+        T com[3];
         for(plint i=0;i<3;i++){
-          x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
-          v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+          v[i] = units.getLbVel(vcm[msBody][i]);
+          omega[i] = units.getLbFreq(omegacm[msBody][i]);
+          com[i] = units.getLbLength(xcm[msBody][i]);
         }
         r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-	sss = new SetSingleSphere3D<T,Descriptor>(x,v,r,id,initVelFlag);
+	sss = new SetSingleSphere3D<T,Descriptor>(x,v,r,com,id,initVelFlag);
+
       } else {
         for(plint i=0;i<3;i++){
-          x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
           v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
           omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
         }
         r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-        sss  = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
+        // use sphere center as center of mass for simple spheres
+        sss  = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
       }
       Box3D sss_box = sss->getBoundingBox();
       

@@ -33,13 +33,11 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   struct SetSingleSphere3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:
-    SetSingleSphere3D(T *x_, T *v_, T *omega_, T r_, int id_, bool initVelFlag_ = false)
-      : x(x_),v(v_),omega(omega_),r(r_),id(id_), initVelFlag(initVelFlag_) {}
-  SetSingleSphere3D(T *x_, T *v_, T r_, int id_, bool initVelFlag_ = false)
-      : x(x_),v(v_),omega(0),r(r_),id(id_), initVelFlag(initVelFlag_) {}
+    SetSingleSphere3D(T *x_, T *v_, T *omega_, T *com_, T r_, int id_, bool initVelFlag_ = false)
+      : x(x_),v(v_),omega(omega_),com(com_),r(r_),id(id_), initVelFlag(initVelFlag_) {}
     SetSingleSphere3D(const SetSingleSphere3D &orig)
-      : x(orig.x),v(orig.v),omega(orig.omega),r(orig.r),
-      id(orig.id),initVelFlag(orig.initVelFlag) {}
+      : x(orig.x),v(orig.v),omega(orig.omega),com(com.orig),
+        r(orig.r),id(orig.id),initVelFlag(orig.initVelFlag) {}
 
     Box3D getBoundingBox() const { return Box3D(x[0]-r-2,x[0]+r+2,
                                                 x[1]-r-2,x[1]+r+2,
@@ -49,7 +47,7 @@ namespace plb{
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     SetSingleSphere3D<T,Descriptor>* clone() const;
   private:
-    T *x,*v,*omega,r;
+    T *x,*v,*omega,*com,r; // com: center of mass
     int id;
     bool initVelFlag;
     T calcSolidFraction(T const dx_, T const dy_, T const dz_, T const r_);
