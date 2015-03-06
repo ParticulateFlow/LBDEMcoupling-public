@@ -28,6 +28,7 @@
 #include "atom.h"
 #include "modify.h"
 #include "fix_lb_coupling_onetoone.h"
+#include "fix_multisphere.h"
 
 namespace plb{
 
@@ -555,6 +556,14 @@ namespace plb{
     plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
     plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
 
+
+    
+    FixMultisphere *fixMultisphere = 0;
+    plint nms = modify->n_fixes_style("multisphere");
+    if(nms)
+      fixMultisphere = static_cast<FixMultisphere*>(modify->find_fix_style("multisphere",0));
+
+
     for(plint iS=0;iS<nPart;iS++){
       plint type = (plint)wrapper.lmp->atom->type[iS];
       bool excludeFlag(false);
@@ -572,14 +581,24 @@ namespace plb{
       T r;
       plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
 
-      for(plint i=0;i<3;i++){
-        x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
-        v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
-        omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
+      if(FixMultisphere && FixMultisphere->belongs_to(id) >= 0){
+        for(plint i=0;i<3;i++){
+          x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+          v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+        }
+        r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
+        SetSingleSphere3D<T,Descriptor> *sss 
+          = new SetSingleSphere3D<T,Descriptor>(x,v,r,id,initVelFlag);
+      } else {
+        for(plint i=0;i<3;i++){
+          x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+          v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+          omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
+        }
+        r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
+        SetSingleSphere3D<T,Descriptor> *sss 
+          = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
       }
-      r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-      SetSingleSphere3D<T,Descriptor> *sss 
-        = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
       Box3D sss_box = sss->getBoundingBox();
       
       // only go over part that lies on local processor
