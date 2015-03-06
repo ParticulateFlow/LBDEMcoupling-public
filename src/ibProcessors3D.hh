@@ -567,11 +567,6 @@ namespace plb{
     if(nms)
       fixMultisphere = static_cast<FixMultisphere*>(wrapper.lmp->modify->find_fix_style("multisphere",0));
 
-    double *xcm = fixMultisphere ? fixMultisphere->multisphere_.xcm_.begin() : 0;
-    double *vcm = fixMultisphere ? fixMultisphere->multisphere_.vcm_.begin() : 0;
-    double *omegacm = fixMultisphere ? fixMultisphere->multisphere_.omega_.begin() : 0;
-    
-
     for(plint iS=0;iS<nPart;iS++){
       plint type = (plint)wrapper.lmp->atom->type[iS];
       bool excludeFlag(false);
@@ -593,27 +588,25 @@ namespace plb{
 
       for(plint i=0;i<3;i++){
         x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+	omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
       }
+      r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
 
       plint msBody = fixMultisphere ? fixMultisphere->belongs_to(id) : -1;
 
       // if particle belongs to multisphere, don't use omega
       if(msBody > -1){
         T com[3];
-        for(plint i=0;i<3;i++){
-          v[i] = units.getLbVel(vcm[msBody][i]);
-          omega[i] = units.getLbFreq(omegacm[msBody][i]);
-          com[i] = units.getLbLength(xcm[msBody][i]);
-        }
-        r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
-	sss = new SetSingleSphere3D<T,Descriptor>(x,v,r,com,id,initVelFlag);
+	fixMultisphere->data().xcm(com,msBody);
+	fixMultisphere->data().vcm(v,msBody);
+
+	sss = new SetSingleSphere3D<T,Descriptor>(x,v,omega,com,r,id,initVelFlag);
 
       } else {
         for(plint i=0;i<3;i++){
           v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
-          omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
         }
-        r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
+
         // use sphere center as center of mass for simple spheres
         sss  = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
       }
