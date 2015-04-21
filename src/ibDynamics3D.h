@@ -45,7 +45,7 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   class IBcompositeDynamics : public CompositeDynamics<T,Descriptor> {
   public:
-    IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_);
+    IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_, bool automaticPrepareCollision_);
     IBcompositeDynamics(const IBcompositeDynamics &orig);
     IBcompositeDynamics(HierarchicUnserializer &unserializer);
     ~IBcompositeDynamics();
@@ -60,10 +60,6 @@ namespace plb {
     virtual void prepareCollision(Cell<T,Descriptor>& cell);
     virtual void collide(Cell<T,Descriptor>& cell,  BlockStatistics& statistics);
 
-    // int partId;
-    // T solidFraction;
-    // Array<T,Descriptor<T>::d> uPart;
-    // Array<T,Descriptor<T>::d> hydrodynamicForce;
     IBdynamicsParticleData<T,Descriptor> particleData;
     Array<T,Descriptor<T>::q> fPre; // pre-collision populations
     
@@ -75,16 +71,17 @@ namespace plb {
 
   };
 
+  // template<typename T, template<typename U> class Descriptor>
+  // int IBcompositeDynamics<T,Descriptor>::id =
+  //   meta::registerCompositeDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
   template<typename T, template<typename U> class Descriptor>
   int IBcompositeDynamics<T,Descriptor>::id =
     meta::registerGeneralDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
 
   template<typename T, template<typename U> class Descriptor>
-  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_)
-    // automaticPrepareCollision is set to true
-    // possible optimization in the future: call this from the 
-    // processor that sets solid fraction, particle velocity etc if needed
-    : CompositeDynamics<T,Descriptor>(baseDynamics_,true), 
+  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
+							 bool automaticPrepareCollision_ = true)
+    : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_), 
       particleData()
   { }
   

@@ -245,10 +245,10 @@ namespace plb{
           T const yGlobal = (T) (relativePosition.y + iY);
           T const zGlobal = (T) (relativePosition.z + iZ);
 
-          T const dx = xGlobal - x[ind][0];
-          T const dy = yGlobal - x[ind][1];
-          T const dz = zGlobal - x[ind][2];
-          
+	  T const dx = xGlobal - x[ind][0];
+	  T const dy = yGlobal - x[ind][1];
+	  T const dz = zGlobal - x[ind][2];
+	           
           T const forceX = particleData.hydrodynamicForce[0];
           T const forceY = particleData.hydrodynamicForce[1];
           T const forceZ = particleData.hydrodynamicForce[2];
@@ -550,7 +550,7 @@ namespace plb{
                               std::vector<plint> &excludeType,
                               bool initVelFlag)
   {
-    plint r = global::mpi().getRank();
+    plint rank = global::mpi().getRank();
 
     // this relies on the fact that there is exactly one block on each lattice
     plint iBlock = lattice.getLocalInfo().getBlocks()[0];
@@ -582,32 +582,45 @@ namespace plb{
 
       T x[3],v[3],omega[3];
       T r;
-      plint id = (plint) round( (T)wrapper.lmp->atom->tag[iS] + 0.1 );
+      plint id = wrapper.lmp->atom->tag[iS];
 
       SetSingleSphere3D<T,Descriptor> *sss = 0;
 
       for(plint i=0;i<3;i++){
         x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
-	omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
       }
       r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
 
       plint msBody = fixMultisphere ? fixMultisphere->belongs_to(id) : -1;
 
+      // std::cout << "proc " << rank << " | " << "id " << id << " multi-body " << msBody << std::endl;
+      
+
+
       // if particle belongs to multisphere, don't use omega
       if(msBody > -1){
-        T com[3];
-	fixMultisphere->data().xcm(com,msBody);
-	fixMultisphere->data().vcm(v,msBody);
+        T x_com[3],v_com[3];
+	fixMultisphere->data().xcm(x_com,msBody);
+	fixMultisphere->data().vcm(v_com,msBody);
         for(plint i=0;i<3;i++){
-          com[i] = units.getLbLength(com[i]);
-          v[i] = units.getLbVel(v[i]);
+          v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+	  omega[i] = 0;//units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
+          x_com[i] = units.getLbLength(x_com[i]);
+          v_com[i] = units.getLbVel(v_com[i]);
         }
-	sss = new SetSingleSphere3D<T,Descriptor>(x,v,omega,com,r,id,initVelFlag);
+	// std::cout << "proc " << rank << " | " 
+	// 	  << "x " << x[0] << " " << x[1] << " " << x[2] << " | "
+	// 	  << "v " << v[0] << " " << v[1] << " " << v[2] << std::endl;
+	// std::cout << "proc " << rank << " | " 
+	// 	  << "x_com " << x_com[0] << " " << x_com[1] << " " << x_com[2] << " | "
+	// 	  << "v_com " << v_com[0] << " " << v_com[1] << " " << " " << v_com[2] << std::endl;
+
+	sss = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
 
       } else {
         for(plint i=0;i<3;i++){
           v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+	  omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
         }
 
         // use sphere center as center of mass for simple spheres
@@ -666,6 +679,9 @@ namespace plb{
 
     if(nPart == 0) return; // no particles - no work
 
+    std::cout << "proc " << r << " | ";
+    
+
     if(nPart > x_lb.size()){
       for(plint iPart=0;iPart<x_lb.size();iPart++){
         x_lb[iPart][0] = units.getLbLength(wrapper.lmp->atom->x[iPart][0]);
@@ -699,6 +715,8 @@ namespace plb{
         torque[i] = 0;
       }
     }
+
+    std::cout << "proc " << r << " | " << "allocation done" << std::endl;;    
 
     SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,
                                                                              &force.front(),&torque.front(),
