@@ -39,8 +39,22 @@
 
 namespace LAMMPS_NS {
   FixLbCouplingOnetoone::FixLbCouplingOnetoone(LAMMPS *lmp, int narg, char **arg)
-    : Fix(lmp,narg,arg), fix_dragforce_(0), fix_hdtorque_(0)
+    : Fix(lmp,narg,arg), fix_dragforce_(0), fix_hdtorque_(0), use_torque_(1)
   {
+
+    if(narg < 5) return;
+
+    if(strcmp(arg[3],"use_torque") == 0){
+      if(strcmp(arg[4],"yes") == 0){
+	use_torque_ = 1;
+      } else if(strcmp(arg[4],"no") == 0){
+	use_torque_ = 0;
+	error->warning(FLERR,"Torque from LB simulation not used");
+      } else{
+	// complain
+	error->all(FLERR,"Illegal fix lbcoupling command: use_torque must be \"yes\" or \"no\"");
+      }
+    }
   }
 
   FixLbCouplingOnetoone::~FixLbCouplingOnetoone()
@@ -134,10 +148,13 @@ namespace LAMMPS_NS {
     double **t = atom->torque;
 
     for(int i=0;i<atom->nlocal;i++){
-      for(int j=0;j<3;j++){
-        f[i][j] += f_ext[i][j];
-        // t[i][j] += t_ext[i][j];
-        t[i][j] += t_ext[i][j];
+      f[i][0] += f_ext[i][0];
+      f[i][1] += f_ext[i][1];
+      f[i][2] += f_ext[i][2];
+      if(use_torque_){
+	t[i][0] += t_ext[i][0];
+	t[i][1] += t_ext[i][1];
+	t[i][2] += t_ext[i][2];
       }
     }
 

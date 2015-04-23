@@ -55,6 +55,7 @@ namespace LAMMPS_NS {
   private:
     class FixPropertyAtom* fix_dragforce_;
     class FixPropertyAtom* fix_hdtorque_; // hdtorque = hydrodynamic torque
+    int use_torque_;
   }; /* class FixLbCouplingOnetoone */
 
 }; /* LAMMPS_NS */
