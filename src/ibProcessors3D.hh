@@ -22,7 +22,7 @@
  */
 
 #include "ibDef.h"
-#include "ibDynamics3D.h"
+#include "ibCompositeDynamics3D.h"
 
 #include "lammps.h"
 #include "atom.h"
