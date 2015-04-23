@@ -14,6 +14,8 @@
 
 # emacs save files
 *~
+\#*\#
+.\#*
 
 # palabos files
 .sconsign.dblite
