@@ -131,7 +131,7 @@ namespace plb{
   {
     // return calcSolidFractionRec(dx_,dy_,dz_,r_);
 
-    static plint const slicesPerDim = 15;
+    static plint const slicesPerDim = 5;
     static T const sliceWidth = 1./((T)slicesPerDim);
     static T const fraction = 1./((T)(slicesPerDim*slicesPerDim*slicesPerDim));
     
@@ -445,7 +445,7 @@ namespace plb{
 
     if(nPart == 0) return; // no particles - no work
 
-    std::cout << "proc " << r << " | ";
+    // std::cout << "proc " << r << " | ";
     
 
     if(nPart > x_lb.size()){
@@ -482,12 +482,12 @@ namespace plb{
       }
     }
 
-    std::cout << "proc " << r << " | " << "allocation done" << std::endl;;    
+    // std::cout << "proc " << r << " | " << "allocation done" << std::endl;;    
 
     SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,
                                                                              &force.front(),&torque.front(),
                                                                              wrapper);
-
+    
     // this relies on the fact that there is exactly one block on each processor
     plint iBlock = lattice.getLocalInfo().getBlocks()[0];
     std::map<plint,Box3D> blockmap = lattice.getSparseBlockStructure().getBulks();
