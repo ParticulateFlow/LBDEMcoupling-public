@@ -225,7 +225,7 @@ int main(int argc, char* argv[]) {
     for (plint iT=0; iT<=maxSteps; ++iT) {
 
       bool initWithVel = false;
-      setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);
+      setSpheresOnLattice(lattice,wrapper,units,initWithVel);
       
 
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
@@ -233,7 +233,7 @@ int main(int argc, char* argv[]) {
 
       lattice.collideAndStream();
 
-      getForcesFromLatticeNew(lattice,wrapper,units);
+      getForcesFromLattice(lattice,wrapper,units);
 
       wrapper.run(demSubsteps);
 

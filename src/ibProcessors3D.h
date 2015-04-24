@@ -72,39 +72,24 @@ namespace plb{
     { return new AttributeFunctional<T,Descriptor>(*this);}
   };
   
-  // template<typename T, template<typename U> class Descriptor>
-  // void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
-  //                          T **x, T **v, T **omega, T *r, int **id, plint nSpheres, bool initVelFlag);
+  template<typename T, template<typename U> class Descriptor>
+  void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
+                           LiggghtsCouplingWrapper &wrapper,
+                           PhysUnits3D<T> const &units,
+                           std::vector<plint> &excludeType,
+                           bool initVelFlag);
+
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
                            LiggghtsCouplingWrapper &wrapper,
                            PhysUnits3D<T> const &units,
                            bool initVelFlag);
 
-
   template<typename T, template<typename U> class Descriptor>
   void getForcesFromLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
                             LiggghtsCouplingWrapper &wrapper,
                             PhysUnits3D<T> const &units);
-
-  template<typename T, template<typename U> class Descriptor>
-  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
-                              LiggghtsCouplingWrapper &wrapper,
-                              PhysUnits3D<T> const &units,
-                              std::vector<plint> &excludeType,
-                              bool initVelFlag);
-
-  template<typename T, template<typename U> class Descriptor>
-  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
-                              LiggghtsCouplingWrapper &wrapper,
-                              PhysUnits3D<T> const &units,
-                              bool initVelFlag);
-
-  template<typename T, template<typename U> class Descriptor>
-  void getForcesFromLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
-                               LiggghtsCouplingWrapper &wrapper,
-                               PhysUnits3D<T> const &units);
-
+  
   template<typename T, template<typename U> class Descriptor>
   struct SumForceTorque3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
   public:

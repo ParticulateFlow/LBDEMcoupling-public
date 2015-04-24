@@ -251,7 +251,7 @@ int main(int argc, char* argv[]) {
 
 
       static bool initWithVel = true;
-      setSpheresOnLatticeNew(lattice,wrapper,units,initWithVel);
+      setSpheresOnLattice(lattice,wrapper,units,initWithVel);
       if(initWithVel) initWithVel = false;
 
       if(iT%vtkSteps == 0 && iT > 0) // LIGGGHTS does not write at timestep 0
@@ -273,7 +273,7 @@ int main(int argc, char* argv[]) {
 							     rhoAvgIn,0,-1),
 	 outlet,lattice);
 
-      getForcesFromLatticeNew(lattice,wrapper,units);
+      getForcesFromLattice(lattice,wrapper,units);
       
       // equilvalent to the "run" command in LIGGGHTS/LAMMPS
       wrapper.run(demSubsteps);

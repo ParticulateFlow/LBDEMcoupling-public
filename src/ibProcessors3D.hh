@@ -308,247 +308,13 @@ namespace plb{
    * implementation of setSpheresOnLattice
    */
 
+
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
                            LiggghtsCouplingWrapper &wrapper,
                            PhysUnits3D<T> const &units,
+                           std::vector<plint> &excludeType,
                            bool initVelFlag)
-  {
-    plint nx=lattice.getNx(), ny=lattice.getNy(), nz=lattice.getNz();
-    for(plint iS=0;iS<wrapper.getNumParticles();iS++){
-      T x[3],v[3],omega[3];
-      T r; 
-      plint id = (plint) round( (T)wrapper.id[iS][0] + 0.1 );
-
-      for(plint i=0;i<3;i++){
-        x[i] = units.getLbLength(wrapper.x[iS][i]);
-        v[i] = units.getLbVel(wrapper.v[iS][i]);
-        omega[i] = units.getLbFreq(wrapper.omega[iS][i]);
-      }
-      r = units.getLbLength(wrapper.r[iS][0]);
-
-      SetSingleSphere3D<T,Descriptor> *sss 
-        = new SetSingleSphere3D<T,Descriptor>(x,v,omega,r,id,initVelFlag);
-      Box3D sss_box = sss->getBoundingBox();
-      applyProcessingFunctional(sss,sss_box,lattice);
-
-      
-      if(lattice.periodicity().get(0)){
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-        if(sss_box.x0 <= 0)
-          x_per[0] += (T)nx;
-        else if(sss_box.x1 >= nx-1)
-          x_per[0] -= (T)nx;
-        else 
-          addPerImg = false;
-
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }        
-      }
-      if(lattice.periodicity().get(1)){
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-        if(sss_box.y0 <= 0)
-          x_per[1] += (T)ny;
-        else if(sss_box.y1 >= ny-1)
-          x_per[1] -= (T)ny;
-        else 
-          addPerImg = false;
-
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }
-      }
-      if(lattice.periodicity().get(2)){
-        plint nz = lattice.getNz();
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-        if(sss_box.z0 <= 0)
-          x_per[2] += (T)nz;
-        else if(sss_box.z1 >= nz-1)
-          x_per[2] -= (T)nz;
-        else 
-          addPerImg = false;
-
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }
-      }
-      
-      if(lattice.periodicity().get(0) && lattice.periodicity().get(1)){
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-        if(sss_box.x0 <= 0)
-          x_per[0] += (T)nx;
-        else if(sss_box.x1 >= nx-1)
-          x_per[0] -= (T)nx;
-        else 
-          addPerImg = false;
-        if(addPerImg){
-          if(sss_box.y0 <= 0)
-            x_per[1] += (T)ny;
-          else if(sss_box.y1 >= ny-1)
-            x_per[1] -= (T)ny;
-          else 
-            addPerImg = false;
-        }
-
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }
-        
-      }
-      if(lattice.periodicity().get(1) && lattice.periodicity().get(2)){
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-        if(sss_box.y0 <= 0)
-          x_per[1] += (T)ny;
-        else if(sss_box.y1 >= ny-1)
-          x_per[1] -= (T)ny;
-        else 
-          addPerImg = false;
-        if(addPerImg){
-          if(sss_box.z0 <= 0)
-            x_per[2] += (T)nz;
-          else if(sss_box.z1 >= nz-1)
-            x_per[2] -= (T)nz;
-          else 
-            addPerImg = false;
-        }
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }
-      }
-      if(lattice.periodicity().get(2) && lattice.periodicity().get(0)){
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-        if(sss_box.z0 <= 0)
-          x_per[2] += (T)nz;
-        else if(sss_box.z1 >= nz-1)
-          x_per[2] -= (T)nz;
-        else 
-          addPerImg = false;
-
-        if(addPerImg){
-          if(sss_box.x0 <= 0)
-            x_per[0] += (T)nx;
-          else if(sss_box.x1 >= nx-1)
-            x_per[0] -= (T)nx;
-          else 
-            addPerImg = false;
-        }
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }
-        
-      }
-      if(lattice.periodicity().get(0) && lattice.periodicity().get(1) && lattice.periodicity().get(2)){
-        T x_per[3] = {x[0],x[1],x[2]};
-        bool addPerImg(true);
-
-        if(sss_box.x0 <= 0)
-          x_per[0] += (T)nx;
-        else if(sss_box.x1 >= nx-1)
-          x_per[0] -= (T)nx;
-        else 
-          addPerImg = false;
-
-        if(addPerImg){
-          if(sss_box.y0 <= 0)
-            x_per[1] += (T)ny;
-          else if(sss_box.y1 >= ny-1)
-            x_per[1] -= (T)ny;
-          else 
-            addPerImg = false;
-        }
-        if(addPerImg){
-          if(sss_box.z0 <= 0)
-            x_per[2] += (T)nz;
-          else if(sss_box.z1 >= nz-1)
-            x_per[2] -= (T)nz;
-          else 
-            addPerImg = false;
-        }
-        if(addPerImg){
-          SetSingleSphere3D<T,Descriptor> *sss_per 
-            = new SetSingleSphere3D<T,Descriptor>(x_per,v,omega,r,id,initVelFlag);
-          applyProcessingFunctional(sss_per,sss_per->getBoundingBox(),lattice);
-        }
-      }
-    }
-    // this one returns modif::staticVariables and forces an update of those along processor
-    // boundaries
-    applyProcessingFunctional(new AttributeFunctional<T,Descriptor>(),lattice.getBoundingBox(),lattice);
-  }
-
-  template<typename T, template<typename U> class Descriptor>
-  void getForcesFromLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
-                            LiggghtsCouplingWrapper &wrapper,
-                            PhysUnits3D<T> const &units)
-  {
-    static typename ParticleData<T>::ParticleDataArrayVector x_lb;
-    for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++)
-      x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.x[iPart][0]),
-                                  units.getLbLength(wrapper.x[iPart][1]),
-                                  units.getLbLength(wrapper.x[iPart][2]) ) );
-    
-    plint const n_force = wrapper.getNumParticles()*3;
-    
-    double *force = new T[n_force];
-    double *torque = new T[n_force];
-    double *force_tmp = new T[n_force];
-    double *torque_tmp = new T[n_force];
-    
-    for(plint i=0;i<n_force;i++){
-      force_tmp[i] = 0;
-      torque_tmp[i] = 0;
-    }
- 
-    SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,force_tmp,torque_tmp);
-    
-    applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
-    
-    MPI_Allreduce(force_tmp,force,n_force,MPI_DOUBLE,MPI_SUM,
-                  global::mpi().getGlobalCommunicator());
-    MPI_Allreduce(torque_tmp,torque,n_force,MPI_DOUBLE,MPI_SUM,
-                  global::mpi().getGlobalCommunicator());
-
-    T const nProc = (T) global::mpi().getSize();
-    for(plint iPart=0;iPart<wrapper.getNumParticles();iPart++){
-      for(int i=0;i<3;i++){
-        wrapper.f[iPart][i] = units.getPhysForce(force[3*iPart+i])/nProc;
-        wrapper.t[iPart][i] = units.getPhysTorque(torque[3*iPart+i])/nProc;
-        // division grudge because of double MPI_allreduce
-      }
-    }
-    
-    
-    delete[] force;
-    delete[] torque;
-  }
-
-
-
-  template<typename T, template<typename U> class Descriptor>
-  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
-                              LiggghtsCouplingWrapper &wrapper,
-                              PhysUnits3D<T> const &units,
-                              std::vector<plint> &excludeType,
-                              bool initVelFlag)
   {
     plint rank = global::mpi().getRank();
 
@@ -652,21 +418,21 @@ namespace plb{
   }
 
   template<typename T, template<typename U> class Descriptor>
-  void setSpheresOnLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
-                              LiggghtsCouplingWrapper &wrapper,
-                              PhysUnits3D<T> const &units,
-                              bool initVelFlag)
+  void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
+                           LiggghtsCouplingWrapper &wrapper,
+                           PhysUnits3D<T> const &units,
+                           bool initVelFlag)
   {
     std::vector<plint> dummyExcludeType;
-    setSpheresOnLatticeNew(lattice,wrapper,units,dummyExcludeType,initVelFlag);
+    setSpheresOnLattice(lattice,wrapper,units,dummyExcludeType,initVelFlag);
   }
 
 
 
   template<typename T, template<typename U> class Descriptor>
-  void getForcesFromLatticeNew(MultiBlockLattice3D<T,Descriptor> &lattice,
-                               LiggghtsCouplingWrapper &wrapper,
-                               PhysUnits3D<T> const &units)
+  void getForcesFromLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
+                            LiggghtsCouplingWrapper &wrapper,
+                            PhysUnits3D<T> const &units)
   {
     // debug stuff
     plint r = global::mpi().getRank();
