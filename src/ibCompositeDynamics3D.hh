@@ -6,6 +6,43 @@
 namespace plb {
 
   template<typename T, template<typename U> class Descriptor>
+  void IBdynamicsParticleData<T,Descriptor>::serialize(HierarchicSerializer &serializer) const
+  {
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      serializer.addValue(uPart[i]);
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      serializer.addValue(hydrodynamicForce[i]);
+    
+    serializer.addValue(solidFraction);
+    serializer.addValue((T)partId);
+
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void IBdynamicsParticleData<T,Descriptor>::unserialize(HierarchicUnserializer &unserializer)
+  {
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      unserializer.readValue(uPart[i]);
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      unserializer.readValue(hydrodynamicForce[i]);
+
+    unserializer.readValue(solidFraction);
+
+
+    // make sure no roundoff errors are introduced in
+    // conversion back from float to int
+    T partIdDummy;
+    unserializer.readValue(partIdDummy);
+    partId = (plint)floor(partIdDummy+0.01); 
+
+  }
+
+
+  template<typename T, template<typename U> class Descriptor>
   int IBcompositeDynamics<T,Descriptor>::id =
     meta::registerGeneralDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
 
@@ -49,17 +86,7 @@ namespace plb {
   void IBcompositeDynamics<T,Descriptor>::serialize(HierarchicSerializer &serializer) const
   {
 
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      serializer.addValue(particleData.uPart[i]);
-
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      serializer.addValue(particleData.hydrodynamicForce[i]);
-    
-    serializer.addValue(particleData.solidFraction);
-
-    T *partIdPtr = (T*) (&particleData.partId);
-    serializer.addValue((T)particleData.partId);
-
+    particleData.serialize(serializer);
     CompositeDynamics<T,Descriptor>::serialize(serializer);
   }
 
@@ -68,21 +95,8 @@ namespace plb {
   {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
 
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      unserializer.readValue(particleData.uPart[i]);
-
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      unserializer.readValue(particleData.hydrodynamicForce[i]);
-
-    unserializer.readValue(particleData.solidFraction);
-
-    T partIdDummy;
-    unserializer.readValue(partIdDummy);
-    plint *partIdPtr = (plint*) (&partIdDummy);
-    particleData.partId = *partIdPtr;
-
+    particleData.unserialize(unserializer);
     CompositeDynamics<T,Descriptor>::unserialize(unserializer);
-
   }
   
   template<typename T, template<typename U> class Descriptor>

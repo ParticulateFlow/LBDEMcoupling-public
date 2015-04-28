@@ -18,6 +18,10 @@ namespace plb {
     T solidFraction;
     Array<T,Descriptor<T>::d> uPart;
     Array<T,Descriptor<T>::d> hydrodynamicForce;
+
+    void serialize(HierarchicSerializer& serializer) const;
+    void unserialize(HierarchicUnserializer& unserializer);
+
   };
   
 
