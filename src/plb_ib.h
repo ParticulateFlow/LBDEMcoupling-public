@@ -18,11 +18,16 @@
  * Author: Philippe Seil (philippe.seil@jku.at)
  */
 
+/*
+ * aggregate header for ib in plb
+ */
+
 #ifndef PLB_IB_H
 #define PLB_IB_H
 
 #include "ibCompositeDynamics3D.h"
 #include "ibProcessors3D.h"
+#include "ibDataWritingFunctionals3D.h"
 #include "physunits.h"
 
 #endif // PLB_IB_H
