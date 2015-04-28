@@ -68,8 +68,7 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
   vtkOut.writeData<float>(p,"pressure",p_fact ); 
   
   MultiScalarField3D<T> tmp(lattice);
-  GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>::Quantity sf = 
-    GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>::SolidFraction;
+  IBscalarQuantity sf = SolidFraction;
   applyProcessingFunctional(new GetScalarQuantityFromDynamicsFunctional<T,DESCRIPTOR,T>(sf),
                             lattice.getBoundingBox(),lattice,tmp);
   
