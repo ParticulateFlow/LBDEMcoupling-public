@@ -29,6 +29,7 @@
 #include "ibProcessors3D.h"
 #include "ibDataWritingFunctionals3D.h"
 #include "ibDataExchangeWrappers3D.h"
+#include "latticeDecomposition.h"
 #include "physunits.h"
 
 #endif // PLB_IB_H
