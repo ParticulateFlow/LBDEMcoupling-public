@@ -1,7 +1,4 @@
 /*
- * ibProcessors3D.hh
- */
-/*
  * This file is part of the LBDEMcoupling software.
  *
  * LBDEMcoupling is free software: you can redistribute it and/or modify
