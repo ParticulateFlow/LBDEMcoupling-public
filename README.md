@@ -37,6 +37,11 @@ In this line, you need to replace the -llmp_fedora with the name of
 your library (usually called lmp_whatever).
 
 
+Documented Compiler Switches
+----------------------------
+
+LBDEM_USE_MULTISPHERE switches on support for the (non-public)
+multisphere model of LIGGGHTS
 
 License and Copyright
 ---------------------
