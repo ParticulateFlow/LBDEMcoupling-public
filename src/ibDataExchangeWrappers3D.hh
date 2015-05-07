@@ -25,6 +25,10 @@
 #ifndef IBDATAEXCHANGEWRAPPERS_HH_LBDEM
 #define IBDATAEXCHANGEWRAPPERS_HH_LBDEM
 
+#ifdef LBDEM_USE_MULTISPHERE
+#include "fix_multisphere.h"
+#endif
+
 namespace plb {
   template<typename T, template<typename U> class Descriptor>
   void setSpheresOnLattice(MultiBlockLattice3D<T,Descriptor> &lattice,
@@ -44,11 +48,16 @@ namespace plb {
     plint nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
 
 
+      // LIGGGHTS-public does not support multisphere (yet?)
+      // thus need to explicitly exclude multisphere method
+#ifdef LBDEM_USE_MULTISPHERE
     
     FixMultisphere *fixMultisphere = 0;
     plint nms = wrapper.lmp->modify->n_fixes_style("multisphere");
     if(nms)
       fixMultisphere = static_cast<FixMultisphere*>(wrapper.lmp->modify->find_fix_style("multisphere",0));
+
+#endif /* LBDEM_USE_MULTISPHERE */
 
     for(plint iS=0;iS<nPart;iS++){
       plint type = (plint)wrapper.lmp->atom->type[iS];
@@ -74,10 +83,11 @@ namespace plb {
       }
       r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
 
-      plint msBody = fixMultisphere ? fixMultisphere->belongs_to(id) : -1;
+      // LIGGGHTS-public does not support multisphere (yet?)
+      // thus need to explicitly exclude multisphere method
+#ifdef LBDEM_USE_MULTISPHERE
 
-      // std::cout << "proc " << rank << " | " << "id " << id << " multi-body " << msBody << std::endl;
-      
+      plint msBody = fixMultisphere ? fixMultisphere->belongs_to(id) : -1;
 
 
       // if particle belongs to multisphere, don't use omega
@@ -91,12 +101,6 @@ namespace plb {
           x_com[i] = units.getLbLength(x_com[i]);
           v_com[i] = units.getLbVel(v_com[i]);
         }
-	// std::cout << "proc " << rank << " | " 
-	// 	  << "x " << x[0] << " " << x[1] << " " << x[2] << " | "
-	// 	  << "v " << v[0] << " " << v[1] << " " << v[2] << std::endl;
-	// std::cout << "proc " << rank << " | " 
-	// 	  << "x_com " << x_com[0] << " " << x_com[1] << " " << x_com[2] << " | "
-	// 	  << "v_com " << v_com[0] << " " << v_com[1] << " " << " " << v_com[2] << std::endl;
 
 	sss = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
 
@@ -109,6 +113,17 @@ namespace plb {
         // use sphere center as center of mass for simple spheres
         sss  = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
       }
+
+#else
+
+      for(plint i=0;i<3;i++){
+        v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
+        omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
+      }
+      r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
+      sss = new SetSingleSphere3D<T,Descriptor>(x,v,omega,x,r,id,initVelFlag);
+
+#endif /* LBDEM_USE_MULTISPHERE */
 
       Box3D sss_box = sss->getBoundingBox();
       

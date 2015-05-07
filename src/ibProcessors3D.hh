@@ -25,7 +25,7 @@
 #include "atom.h"
 #include "modify.h"
 #include "fix_lb_coupling_onetoone.h"
-#include "fix_multisphere.h"
+
 
 namespace plb{
 
