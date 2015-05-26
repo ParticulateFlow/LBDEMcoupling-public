@@ -253,13 +253,26 @@ namespace plb {
     double **f_liggghts = couplingFix->get_force_ptr();
     double **t_liggghts = couplingFix->get_torque_ptr();
 
+    for(plint iPart=0;iPart<nPart;iPart++)
+      for(plint j=0;j<3;j++){
+        f_liggghts[iPart][j] = 0;
+        t_liggghts[iPart][j] = 0;
+      }
+
+    pcout << "DEBUG new step" << std::endl;
+
     for(plint iPart=0;iPart<nPart;iPart++){
       int tag = wrapper.lmp->atom->tag[iPart];
       int liggghts_ind = wrapper.lmp->atom->map(tag);
-      for(plint i=0;i<3;i++){
-        f_liggghts[liggghts_ind][i] = units.getPhysForce(force[3*iPart+i]);
-        t_liggghts[liggghts_ind][i] = units.getPhysTorque(torque[3*iPart+i]);
+      pcout << "DEBUG " << "tag: " << tag << " liggghts_ind: " << liggghts_ind << std::endl;
+      pcout << "DEBUG ";
+
+      for(plint j=0;j<3;j++){
+        f_liggghts[liggghts_ind][j] += units.getPhysForce(force[3*iPart+j]);
+        t_liggghts[liggghts_ind][j] += units.getPhysTorque(torque[3*iPart+j]);
+        pcout << " t" << j << " " << units.getPhysTorque(force[3*iPart+j]);
       }
+      pcout << std::endl;
     }
     couplingFix->comm_force_torque();
 
