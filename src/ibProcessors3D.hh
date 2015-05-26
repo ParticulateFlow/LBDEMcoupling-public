@@ -214,6 +214,8 @@ namespace plb{
   {
     Dot3D const relativePosition = lattice.getLocation();
 
+    plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -242,9 +244,19 @@ namespace plb{
           T const yGlobal = (T) (relativePosition.y + iY);
           T const zGlobal = (T) (relativePosition.z + iZ);
 
-	  T const dx = xGlobal - x[ind][0];
-	  T const dy = yGlobal - x[ind][1];
-	  T const dz = zGlobal - x[ind][2];
+	  T dx = xGlobal - x[ind][0];
+	  T dy = yGlobal - x[ind][1];
+	  T dz = zGlobal - x[ind][2];
+          
+          // minimum image convention, needed if
+          // (1) PBC are used and
+          // (2) both ends of PBC lie on the same processor
+          if(dx > nx/2) dx -= nx;
+          else if(dx < -nx/2) dx += nx;
+          if(dy > ny/2) dy -= ny;
+          else if(dy < -ny/2) dy += ny;
+          if(dz > nz/2) dz -= nz;
+          else if(dz < -nz/2) dz += nz;
 	           
           T const forceX = particleData.hydrodynamicForce[0];
           T const forceY = particleData.hydrodynamicForce[1];
