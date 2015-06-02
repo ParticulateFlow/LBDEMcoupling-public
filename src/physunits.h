@@ -39,6 +39,7 @@ namespace plb {
     T getRe() const {return Re; };
 
     T getLbLength(T const physL) const { return physL / l_p / param.getDeltaX() ; };
+    T getLbPosition(T const physL) const { return physL / l_p / param.getDeltaX() - 0.5 ; };
     T getLbVel(T const physVel) const { return physVel / u_p * param.getLatticeU(); };
     T getLbTime(T const physTime) const { return physTime / t_p / param.getDeltaT(); };
     T getLbDensity(T const physDensity) const { return physDensity / rho_p; };
@@ -50,6 +51,7 @@ namespace plb {
         / getPhysForce(1.) * pow(getPhysLength(1.),2); };
     
     T getPhysLength(T const lbLength) const { return lbLength*param.getDeltaX()*l_p; };
+    T getPhysPosition(T const lbLength) const { return (lbLength+0.5)*param.getDeltaX()*l_p; };
     T getPhysVel(T const lbVel) const { return lbVel/param.getLatticeU()*u_p; };
     T getPhysTime(T const lbTime) const { return lbTime*param.getDeltaT()*t_p; };
     T getPhysDensity(T const lbDensity) const { return lbDensity * rho_p; };

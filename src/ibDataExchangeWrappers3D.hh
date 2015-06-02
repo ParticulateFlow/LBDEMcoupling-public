@@ -79,7 +79,7 @@ namespace plb {
       SetSingleSphere3D<T,Descriptor> *sss = 0;
 
       for(plint i=0;i<3;i++){
-        x[i] = units.getLbLength(wrapper.lmp->atom->x[iS][i]);
+        x[i] = units.getLbPosition(wrapper.lmp->atom->x[iS][i]);
       }
       r = units.getLbLength(wrapper.lmp->atom->radius[iS]);
 
@@ -98,7 +98,7 @@ namespace plb {
         for(plint i=0;i<3;i++){
           v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
 	  omega[i] = 0;//units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
-          x_com[i] = units.getLbLength(x_com[i]);
+          x_com[i] = units.getLbPosition(x_com[i]);
           v_com[i] = units.getLbVel(v_com[i]);
         }
 
@@ -182,19 +182,19 @@ namespace plb {
 
     if(nPart > x_lb.size()){
       for(plint iPart=0;iPart<x_lb.size();iPart++){
-        x_lb[iPart][0] = units.getLbLength(wrapper.lmp->atom->x[iPart][0]);
-        x_lb[iPart][1] = units.getLbLength(wrapper.lmp->atom->x[iPart][1]);
-        x_lb[iPart][2] = units.getLbLength(wrapper.lmp->atom->x[iPart][2]);
+        x_lb[iPart][0] = units.getLbPosition(wrapper.lmp->atom->x[iPart][0]);
+        x_lb[iPart][1] = units.getLbPosition(wrapper.lmp->atom->x[iPart][1]);
+        x_lb[iPart][2] = units.getLbPosition(wrapper.lmp->atom->x[iPart][2]);
       }
       for(plint iPart = x_lb.size();iPart < nPart; iPart++)
-        x_lb.push_back( Array<T,3>( units.getLbLength(wrapper.lmp->atom->x[iPart][0]),
-                                    units.getLbLength(wrapper.lmp->atom->x[iPart][1]),
-                                    units.getLbLength(wrapper.lmp->atom->x[iPart][2]) ) );
+        x_lb.push_back( Array<T,3>( units.getLbPosition(wrapper.lmp->atom->x[iPart][0]),
+                                    units.getLbPosition(wrapper.lmp->atom->x[iPart][1]),
+                                    units.getLbPosition(wrapper.lmp->atom->x[iPart][2]) ) );
     } else{
       for(plint iPart=0;iPart<nPart;iPart++){
-        x_lb[iPart][0] = units.getLbLength(wrapper.lmp->atom->x[iPart][0]);
-        x_lb[iPart][1] = units.getLbLength(wrapper.lmp->atom->x[iPart][1]);
-        x_lb[iPart][2] = units.getLbLength(wrapper.lmp->atom->x[iPart][2]);
+        x_lb[iPart][0] = units.getLbPosition(wrapper.lmp->atom->x[iPart][0]);
+        x_lb[iPart][1] = units.getLbPosition(wrapper.lmp->atom->x[iPart][1]);
+        x_lb[iPart][2] = units.getLbPosition(wrapper.lmp->atom->x[iPart][2]);
       }
     }
 
