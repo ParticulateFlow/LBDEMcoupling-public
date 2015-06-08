@@ -213,8 +213,9 @@ namespace plb{
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
   {
     Dot3D const relativePosition = lattice.getLocation();
-
-    plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
+    
+    // "real" domain size is nx-2 etc
+    plint nx = lattice.getNx()-2, ny = lattice.getNy()-2, nz = lattice.getNz()-2;
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
