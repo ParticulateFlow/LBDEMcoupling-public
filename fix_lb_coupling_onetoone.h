@@ -48,6 +48,7 @@ namespace LAMMPS_NS {
     virtual void init();
 
     virtual void post_force(int);
+    virtual void post_run();
 
     double **get_force_ptr();
     double **get_torque_ptr();
