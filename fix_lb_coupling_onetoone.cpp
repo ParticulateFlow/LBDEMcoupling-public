@@ -31,6 +31,7 @@
 #include "error.h"
 #include "atom.h"
 #include "comm.h"
+#include "timer.h"
 
 #include "fix_property_atom.h"
 
@@ -66,6 +67,7 @@ namespace LAMMPS_NS {
   {
     int mask = 0;
     mask |= FixConst::POST_FORCE;
+    mask |= FixConst::POST_RUN;
     return mask;
   }
 
@@ -90,7 +92,7 @@ namespace LAMMPS_NS {
           "dragforce",     // property name
           "vector", // 1 vector per particle
           "yes",    // restart
-          "no",     // communicate ghost
+          "yes",     // communicate ghost
           "yes",    // communicate rev
           "0.","0.","0." // default values
         };
@@ -107,7 +109,7 @@ namespace LAMMPS_NS {
           "hdtorque",      // property name
           "vector", // 1 vector per particle
           "yes",    // restart
-          "no",     // communicate ghost
+          "yes",     // communicate ghost
           "yes",    // communicate rev
           "0.","0.","0."
         };
@@ -157,6 +159,18 @@ namespace LAMMPS_NS {
 	t[i][2] += t_ext[i][2];
       }
     }
+
+  }
+
+  // LBDEM coupling relies on correct values for velocities in ghost atoms, thus 
+
+  void FixLbCouplingOnetoone::post_run()
+  {
+    // need one very last forward_comm to make sure 
+    // that velocities on owned and ghost particles match
+    timer->stamp();
+    comm->forward_comm();
+    timer->stamp(TIME_COMM);
 
   }
 

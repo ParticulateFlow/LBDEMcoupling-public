@@ -36,7 +36,7 @@ namespace plb {
       serializer.addValue(hydrodynamicForce[i]);
     
     serializer.addValue(solidFraction);
-    serializer.addValue((T)partId);
+    serializer.addValue<plint>(partId);
 
   }
 
@@ -51,14 +51,7 @@ namespace plb {
       unserializer.readValue(hydrodynamicForce[i]);
 
     unserializer.readValue(solidFraction);
-
-
-    // make sure no roundoff errors are introduced in
-    // conversion back from float to int
-    T partIdDummy;
-    unserializer.readValue(partIdDummy);
-    partId = (plint)floor(partIdDummy+0.01); 
-
+    unserializer.readValue<plint>(partId);
   }
 
 

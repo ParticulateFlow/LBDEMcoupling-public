@@ -36,10 +36,10 @@ namespace plb{
   template<typename T, template<typename U> class Descriptor>
   void SetSingleSphere3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
   {
-    //modified[0] = modif::staticVariables;
-    modified[0] = modif::nothing; 
     // modifies stuff, but we don't want updates running
-    // after each particle set
+    // after each particle set... should be modif::dataStructure
+    // modified[0] = modif::dataStructure;
+    modified[0] = modif::nothing; 
   }
 
   template<typename T, template<typename U> class Descriptor>
@@ -53,15 +53,12 @@ namespace plb{
   {
     Dot3D const relativePosition = lattice.getLocation();
 
-    // std::cout << "entering SetSingleSphere::process on proc " << global::mpi().getRank() << "\n"
-    //           << "id " << id << " | pos " << x[0] << " " << x[1] << " " << x[2] << std::endl;
-
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
-          // pcout << "enter point " << iX << " " << iY << " " << iZ << std::endl;
+
           // no composite --> no IB
           if(!dyn->isComposite()) continue;
           // pcout << "is composite" << std::endl;
@@ -88,15 +85,10 @@ namespace plb{
           T const dx_com = xGlobal - com[0];
           T const dy_com = yGlobal - com[1];
           T const dz_com = zGlobal - com[2];
-          // T const sf = calcSolidFraction(dx,dy,dz,r);
+
           T const sf = calcSolidFraction(dx,dy,dz,r);
           
-          // pcout << iX << " " << iY << " " << iZ << " | "
-          //       << id_old << " " << id << " | " << sf_old << " " << sf << std::endl;
-          
           plint const decFlag = (sf > SOLFRAC_MIN) + 2*(sf_old > SOLFRAC_MIN);
-          
-          // pcout << "dec " << decFlag << std::endl;
           
           switch(decFlag){
           case 0: // sf == 0 && sf_old == 0
@@ -213,8 +205,9 @@ namespace plb{
   void SumForceTorque3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
   {
     Dot3D const relativePosition = lattice.getLocation();
-
-    plint nx = lattice.getNx(), ny = lattice.getNy(), nz = lattice.getNz();
+    
+    // "real" domain size is nx-2 etc
+    plint nx = lattice.getNx()-2, ny = lattice.getNy()-2, nz = lattice.getNz()-2;
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -270,19 +263,10 @@ namespace plb{
           addForce(ind,1,forceY);
           addForce(ind,2,forceZ);
           
-
-          // pcerr << "proc "
-          //   /*<< iX << " " << iY << " " << iZ << " | "*/
-          //       << dx << " " << dy << " " << dz << " | "
-          //       << forceX << " " << forceY << " " << forceZ << " | "
-          //       << torqueX << " " << torqueY << " " << torqueZ << " | "
-          //       << particleData.solidFraction << std::endl;
-
           addTorque(ind,0,torqueX);
           addTorque(ind,1,torqueY);
           addTorque(ind,2,torqueZ);
           
-          //cDyn->particleData = particleData;
         }
       }
     }
@@ -311,12 +295,6 @@ namespace plb{
   {
     modified[0] = modif::nothing;
   }
-
-  /* ------------------------------------------- */
-  /*
-   * implementation of setSpheresOnLattice
-   */
-
 
   
 };
