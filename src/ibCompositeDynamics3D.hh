@@ -36,7 +36,7 @@ namespace plb {
       serializer.addValue(hydrodynamicForce[i]);
     
     serializer.addValue(solidFraction);
-    serializer.addValue(partId);
+    serializer.addValue<plint>(partId);
 
   }
 
@@ -51,7 +51,7 @@ namespace plb {
       unserializer.readValue(hydrodynamicForce[i]);
 
     unserializer.readValue(solidFraction);
-    unserializer.readValue(partId);
+    unserializer.readValue<plint>(partId);
   }
 
 

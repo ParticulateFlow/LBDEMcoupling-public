@@ -115,7 +115,6 @@ namespace plb {
       }
 
 #else
-
       for(plint i=0;i<3;i++){
         v[i] = units.getLbVel(wrapper.lmp->atom->v[iS][i]);
         omega[i] = units.getLbFreq(wrapper.lmp->atom->omega[iS][i]);
@@ -126,16 +125,13 @@ namespace plb {
 #endif /* LBDEM_USE_MULTISPHERE */
 
       Box3D sss_box = sss->getBoundingBox();
-      
+
       // only go over part that lies on local processor
       // to avoid unnecessary communication overhead
       Box3D sss_box_intersect(0,0,0,0,0,0);
+
       bool boxes_intersect = intersect(sss_box,localBB,sss_box_intersect);
-      // std::cout << r << " intersect " << boxes_intersect << " "
-      //           << sss_box_intersect.x0 << " " << sss_box_intersect.x1 << " "
-      //           << sss_box_intersect.y0 << " " << sss_box_intersect.y1 << " "
-      //           << sss_box_intersect.z0 << " " << sss_box_intersect.z1 << " "
-      //           << std::endl;
+
       if(boxes_intersect)
         applyProcessingFunctional(sss,sss_box_intersect,lattice);
       else
@@ -177,9 +173,6 @@ namespace plb {
 
     if(nPart == 0) return; // no particles - no work
 
-    // std::cout << "proc " << r << " | ";
-    
-
     if(nPart > x_lb.size()){
       for(plint iPart=0;iPart<x_lb.size();iPart++){
         x_lb[iPart][0] = units.getLbPosition(wrapper.lmp->atom->x[iPart][0]);
@@ -214,8 +207,6 @@ namespace plb {
       }
     }
 
-    // std::cout << "proc " << r << " | " << "allocation done" << std::endl;;    
-
     SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,
                                                                              &force.front(),&torque.front(),
                                                                              wrapper);
@@ -226,24 +217,6 @@ namespace plb {
     Box3D localBB = blockmap[iBlock];
     applyProcessingFunctional(sft,localBB, lattice);
 
-    // for(plint i=0;i<force.size();i++)
-    //   pcerr << force[i] << " ";
-    // pcerr << "|";
-    // for(plint i=0;i<torque.size();i++)
-    //   pcerr << torque[i] << " ";
-    // pcerr << std::endl;
-
-    // // experimental....
-    // SparseBlockStructure3D sparseBlock = lattice.getSparseBlockStructure();
-    // std::vector<Box3D> boxVec;
-    // std::vector<plint> localBlocks = lattice.getLocalInfo().getBlocks();
-    // sparseBlock.intersect(lattice.getBoundingBox(),localBlocks,boxVec);
-    // std::cout << r << " boxvec " << boxVec.size() << std::endl;
-    // for(plint i=0;i<boxVec.size();i++)
-    //   applyProcessingFunctional(sft,boxVec[i],lattice);
-    
-    // // basic version with complete lattice
-    // applyProcessingFunctional(sft,lattice.getBoundingBox(), lattice);
 
     LAMMPS_NS::FixLbCouplingOnetoone 
       *couplingFix 
@@ -259,23 +232,17 @@ namespace plb {
         t_liggghts[iPart][j] = 0;
       }
 
-    pcout << "DEBUG new step" << std::endl;
 
     for(plint iPart=0;iPart<nPart;iPart++){
       int tag = wrapper.lmp->atom->tag[iPart];
       int liggghts_ind = wrapper.lmp->atom->map(tag);
-      pcout << "DEBUG " << "tag: " << tag << " liggghts_ind: " << liggghts_ind << std::endl;
-      pcout << "DEBUG ";
 
       for(plint j=0;j<3;j++){
         f_liggghts[liggghts_ind][j] += units.getPhysForce(force[3*iPart+j]);
         t_liggghts[liggghts_ind][j] += units.getPhysTorque(torque[3*iPart+j]);
-        pcout << " t" << j << " " << units.getPhysTorque(force[3*iPart+j]);
       }
-      pcout << std::endl;
     }
     couplingFix->comm_force_torque();
-
   }
 
 }; /* namespace plb */

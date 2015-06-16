@@ -66,7 +66,7 @@ namespace plb{
   public:
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice) {}
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
-    {modified[0] = modif::staticVariables;}
+    {modified[0] = modif::dynamicVariables;}
 
     AttributeFunctional<T,Descriptor>* clone() const
     { return new AttributeFunctional<T,Descriptor>(*this);}
