@@ -18,6 +18,16 @@ variables in your .bashrc:
           export LIGGGHTS_ROOT=path/to/liggghts/
           export LBDEM_ROOT=path/to/lbdem/
 
+You also need to move the files
+
+         fix_lb_coupling_onetoone.cpp
+         fix_lb_coupling_onetoone.h
+
+to your LIGGGHTS installation directory and recompile LIGGGHTS from
+scratch.
+
+
+
 Setting Up a Simulation
 -----------------------
 
