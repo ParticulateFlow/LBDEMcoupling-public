@@ -46,6 +46,12 @@ line
 In this line, you need to replace the -llmp_fedora with the name of
 your library (usually called lmp_whatever).
 
+Known Issues
+------------
+
+If you come across a multiple definition error during compilation, please consult this thread:
+
+       http://www.palabos.org/forum/read.php?11,6746,7581#msg-7581
 
 Documented Compiler Switches
 ----------------------------
