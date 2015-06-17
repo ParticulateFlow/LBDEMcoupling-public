@@ -1,4 +1,4 @@
-lbdem-dev
+LBDEMcoupling
 =========
 
 About
