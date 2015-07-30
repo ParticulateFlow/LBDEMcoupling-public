@@ -1,15 +1,25 @@
-LBDEMcoupling
-=========
+# LBDEMcoupling
 
-About
------
+* [About](#about)
+* [Installation](#installation)
+* [Setting Up a Simulation](#setting_up)
+* [Implicit Assumptions, Known Issues](#assumptions)
+* [Gallery](#gallery)
+* [Documented Compiler Switches](#compilerswitches)
+* [References](#references)
+* [License and Copyright](#license)
+
+<a name="about"></a>
+## About
 
 LBDEMcoupling is a coupling between the Lattice Boltzmann (LB) library
 Palabos (http://www.palabos.org) and the Discrete Element Method code
-LIGGGHTS (http://www.ligggghts.com). 
+LIGGGHTS® (http://www.ligggghts.com). It implements the model of Noble
+and Torczinsky [[1]](#ref1) for resolved coupling between particles
+and a fluid phase.
 
-Installation
-------------
+<a name="installation"></a>
+## Installation
 
 Just clone the git repo, and create the following three shell
 variables in your .bashrc:
@@ -24,12 +34,14 @@ You also need to move the files
          fix_lb_coupling_onetoone.h
 
 to your LIGGGHTS installation directory and recompile LIGGGHTS from
-scratch.
+scratch with
+
+         make clean-all; make fedora
 
 
 
-Setting Up a Simulation
------------------------
+<a name="setting_up"></a>
+## Setting Up a Simulation
 
 It is assumed that you have basic knowledge in both Palabos and
 LIGGGHTS. If you are not familiar with one or both of the codes, it is
@@ -46,24 +58,55 @@ line
 In this line, you need to replace the -llmp_fedora with the name of
 your library (usually called lmp_whatever).
 
-Known Issues
-------------
+<a name="gallery"></a>
+## Gallery
 
-If you come across a multiple definition error during compilation, please consult this thread:
+### Settling spheres
 
-       http://www.palabos.org/forum/read.php?11,6746,7581#msg-7581
+<img src="doc/img/settling.png" alt="10000 settling spheres">
 
-Documented Compiler Switches
-----------------------------
+### Square Channel with Particles
+
+<img src="doc/img/showcaseRectChannel.png">
+
+
+<a name="assumptions"></a>
+## Implicit Assumptions, Known Issues
+
+### Sphere size
+
+The code implicitly assumes that all your particles are larger than
+four grid spacings and smaller than half the smallest extent of any
+partition.
+
+### Multiple Definition Errors
+
+If you come across a multiple definition error during compilation,
+please consult ![this
+thread](http://www.palabos.org/forum/read.php?11,6746,7581#msg-7581)
+in the Palabos forum.
+
+<a name="compilerswitches"></a>
+## Documented Compiler Switches
 
 LBDEM_USE_MULTISPHERE switches on support for the (non-public)
 multisphere model of LIGGGHTS
 
-License and Copyright
----------------------
+<a name="references"></a>
+## References
+
+<a name="ref1">[1]</a> Noble, D. R., & Torczynski, J. R. (1998). A
+lattice-Boltzmann method for partially saturated computational
+cells. *International Journal of Modern Physics C*, 9(08), 1189-1201.
+
+<a name="license"></a>
+## License and Copyright
 
 (c) Johannes Kepler University Linz, Austria
 
 released under the GPLv3
 
 main author: Philippe Seil (philippe.seil@jku.at)
+
+LIGGGHTS® is a registered trade mark of DCS Computing GmbH, the
+producer of the LIGGGHTS® software

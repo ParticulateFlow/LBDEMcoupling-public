@@ -8,7 +8,7 @@ simualated.
 The channel crossection is 0.2x0.2m. Viscosity is hard-wired to 1e-3
 m^2/s, density is set to 1000 kg/m^3. All other parameters can be set
 via the command line. The flow is driven by a periodic pressure
-boundary condition by Zhang and Kwok ![[1]](#ref1)
+boundary condition by Zhang and Kwok [[1]](#ref1)
 
 ## Running the case
 
@@ -34,9 +34,10 @@ Palabos data respectively.
 
 Depending on solid fraction and Reynolds number, pattern formation
 (clusters, rings) should occur, similar to the Segre-Silberberg effect
-![[2]](#ref2). However, this can take O(10000) times
+[[2]](#ref2). However, this can take O(10000) times
 the Stokes time, so please be patient and let the simulation run.
 
+## References
 
 <a name="ref1">[1]</a> Zhang, J., & Kwok, D. Y. (2006). Pressure boundary
 condition of the lattice Boltzmann method for fully developed periodic
