@@ -41,6 +41,9 @@ log.*
 perf.*
 *.hpcstruct
 
+# binaries of examples
+examples/sedimentingSphere/sedimentingSphere
+
 # collected bullsh*t
 examples/dragValidationLiggghts/u0*
 examples/sedimentingSphere/*E*
