@@ -43,6 +43,8 @@ perf.*
 
 # binaries of examples
 examples/sedimentingSphere/sedimentingSphere
+examples/showcaseRectChannel/showcaseRectChannel
+examples/benchmark/benchmark
 
 # collected bullsh*t
 examples/dragValidationLiggghts/u0*

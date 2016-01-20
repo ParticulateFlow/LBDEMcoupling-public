@@ -40,7 +40,8 @@ libraryPaths = ${LIGGGHTS_ROOT}/src
 includePaths = ${LBDEM_ROOT}/src/ ${LIGGGHTS_ROOT}/src
 # Dynamic and static libraries (other than Palabos)
 #libraries    = liblmp_fedora-debug.a
-libraries    = liblmp_fedora.a
+#libraries    = liblmp_fedora.so
+libraries = liblammps.so
 
 # Compiler to use without MPI parallelism
 serialCXX    = g++
@@ -49,8 +50,8 @@ parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
 compileFlags = -Wall -Wnon-virtual-dtor -Wno-write-strings
 # General linker flags (don't put library includes into this flag)
-#linkFlags    =
-linkFlags    = -Wl,--whole-archive -llmp_fedora -Wl,--no-whole-archive
+linkFlags    =
+#linkFlags    = -Wl,--whole-archive -llmp_fedora -Wl,--no-whole-archive
 optimFlags   = -O3
 # Compiler flags to use when debug mode is on
 debugFlags   = -g
