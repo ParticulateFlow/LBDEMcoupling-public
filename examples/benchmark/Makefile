@@ -39,8 +39,7 @@ libraryPaths = ${LIGGGHTS_ROOT}/src
 # Path to inlude directories (other than Palabos)
 includePaths = ${LBDEM_ROOT}/src/ ${LIGGGHTS_ROOT}/src
 # Dynamic and static libraries (other than Palabos)
-#libraries    = liblmp_fedora-debug.a
-libraries    = liblmp_fedora.a
+libraries    = liblammps.so
 
 # Compiler to use without MPI parallelism
 serialCXX    = g++
@@ -50,7 +49,7 @@ parallelCXX  = mpicxx
 compileFlags = -Wnon-virtual-dtor -Wno-write-strings
 # General linker flags (don't put library includes into this flag)
 # replace -llmp_fedora with the name of your library!
-linkFlags    = -Wl,--whole-archive -llmp_fedora -Wl,--no-whole-archive 
+linkFlags    =  
 # Compiler flags to use when optimization mode is on
 optimFlags   = -O3
 # Compiler flags to use when debug mode is on
