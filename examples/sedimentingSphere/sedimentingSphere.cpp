@@ -13,6 +13,7 @@
   
  */
 
+#define LBDEM_USE_WEIGHING
 
 #include "palabos3D.h"
 #include "palabos3D.hh"
@@ -26,12 +27,6 @@
 #include <sstream>
 #include <ctime>
 
-// necessary LAMMPS/LIGGGHTS includes
-// #include "lammps.h"
-// #include "input.h"
-// #include "library.h"
-// #include "library_cfd_coupling.h"
-
 #include "liggghtsCouplingWrapper.h"
 #include "latticeDecomposition.h"
 
@@ -40,9 +35,7 @@ using namespace std;
 
 typedef double T;
 
-//#define DESCRIPTOR descriptors::D3Q19Descriptor
 #define DESCRIPTOR descriptors::D3Q19Descriptor
-//#define DYNAMICS IBcompositeDynamics<T,DESCRIPTOR>(new BGKdynamics<T,DESCRIPTOR>(parameters.getOmega()))
 #define DYNAMICS IBcompositeDynamics<T,DESCRIPTOR>(new BGKdynamics<T,DESCRIPTOR>(parameters.getOmega()))
 
 void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
@@ -71,22 +64,27 @@ void writeVTK(MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
 
   vtkOut.writeData<float>(p,"solidfraction",1. ); 
 
-  // GetVectorQuantityFromDynamicsFunctional<T,DESCRIPTOR,T,3>::Quantity force =
-  //   GetVectorQuantityFromDynamicsFunctional<T,DESCRIPTOR,T,3>::HydrodynamicForce;
-  // applyProcessingFunctional(new GetVectorQuantityFromDynamicsFunctional<T,DESCRIPTOR,T,3>(force),
-  //                           lattice.getBoundingBox(),lattice,*vel);
-  
-  // vtkOut.writeData<3,float>(*vel,"hydrodynamicForce",units.getPhysForce(1.) ); 
-  
-  // for(plint i=0;i<DESCRIPTOR<T>::ExternalField::numScalars;i++){
-  //   std::stringstream s;
-  //   s << i;
-  //   vtkOut.writeData<float>(*computeExternalScalar(lattice,i),s.str().c_str(),1.);
-  // }
 
   pcout << "wrote " << fname << std::endl;
 }
 
+void writeGif(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint iter)
+{
+  const plint imSize = 600;
+    
+  Box3D slice(0,lattice.getNx(),
+              lattice.getNy()/2,lattice.getNy()/2,
+              0,lattice.getNz());
+  
+  MultiScalarField3D<T> vel(*computeVelocityNorm(lattice,slice));
+  
+  ImageWriter<T> imageWriter("leeloo");
+  imageWriter.writeGif(createFileName("uNorm", iter, 6),
+                       vel,
+                       0., 0.02,
+                       imSize, imSize );
+  
+}
 
 int main(int argc, char* argv[]) {
 
@@ -125,8 +123,8 @@ int main(int argc, char* argv[]) {
     
     wrapper.setVariable("rho_fluid",rho_f);
 
+    wrapper.setVariable("dmp_dir",demOutDir);
 
-    wrapper.execFile("in.lbdem");
 
     const T g = 9.81;
     const T nu_f = mu_f/rho_f;
@@ -135,13 +133,17 @@ int main(int argc, char* argv[]) {
     T r_ = 0.015/2.;
 
     PhysUnits3D<T> units(2.*r_,v_inf,nu_f,lx,ly,lz,N,uMax,rho_f);
+    units.setLbOffset(0.,0.,0.);
+
 
     IncomprFlowParam<T> parameters(units.getLbParam());
 
-    
-    
+    T const physDx = units.getPhysLength(1);
+    wrapper.setVariable("phys_dx",physDx);
 
-    const T vtkT = 0.01;
+    wrapper.execFile("in.lbdem");
+
+    const T vtkT = 0.1;
     const T logT = 0.0000001;
 
     const plint maxSteps = units.getLbSteps(maxT);
@@ -149,6 +151,13 @@ int main(int argc, char* argv[]) {
     const plint logSteps = max<plint>(units.getLbSteps(logT),1);
 
     writeLogFile(parameters, "3D sedimenting sphere");
+
+    pcout << "-----------------------------------\n";
+    pcout << "grid size: " 
+          << parameters.getNx() << " "
+          << parameters.getNy() << " " 
+          << parameters.getNz() << std::endl;
+    pcout << "-----------------------------------" << std::endl;
 
     LatticeDecomposition lDec(parameters.getNx(),parameters.getNy(),parameters.getNz(),
                               wrapper.lmp);
@@ -160,7 +169,9 @@ int main(int argc, char* argv[]) {
     plint envelopeWidth = 1;
 
     MultiBlockLattice3D<T, DESCRIPTOR> 
-      lattice (MultiBlockManagement3D (blockStructure, threadAttribution, envelopeWidth ),
+      lattice (MultiBlockManagement3D (blockStructure, 
+                                       threadAttribution, 
+                                       envelopeWidth ),
                defaultMultiBlockPolicy3D().getBlockCommunicator(),
                defaultMultiBlockPolicy3D().getCombinedStatistics(),
                defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
@@ -189,7 +200,6 @@ int main(int argc, char* argv[]) {
 
     wrapper.setVariable("t_step",dt_dem);
     wrapper.setVariable("dmp_stp",vtkSteps*demSubsteps);
-    wrapper.setVariable("dmp_dir",demOutDir);
 
 
     wrapper.execFile("in2.lbdem");
@@ -203,26 +213,17 @@ int main(int argc, char* argv[]) {
 
       setSpheresOnLattice(lattice,wrapper,units,false);
     
-      if(iT%vtkSteps == 0)
+      if(iT%vtkSteps == 0){
         writeVTK(lattice,parameters,units,iT);
+        // writeGif(lattice,iT);
+      }
 
       lattice.collideAndStream();
 
       getForcesFromLattice(lattice,wrapper,units);
 
       wrapper.run(demSubsteps);
-      
-      pcerr << ((T)iT)*dt_phys << " " 
-            << wrapper.lmp->atom->x[0][0] << " "
-            << wrapper.lmp->atom->x[0][1] << " "
-            << wrapper.lmp->atom->x[0][2] << " "
-            << wrapper.lmp->atom->v[0][0] << " "
-            << wrapper.lmp->atom->v[0][1] << " "
-            << wrapper.lmp->atom->v[0][2] << " "
-            << wrapper.lmp->atom->f[0][0] << " "
-            << wrapper.lmp->atom->f[0][1] << " "
-            << wrapper.lmp->atom->f[0][2] << std::endl;
-      
+            
       if(iT%logSteps == 0){
         clock_t end = clock();
         T time = ((T)difftime(end,start))/((T)CLOCKS_PER_SEC);

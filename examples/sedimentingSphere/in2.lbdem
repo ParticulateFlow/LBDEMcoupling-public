@@ -7,11 +7,20 @@ compute		1 all erotate/sphere
 thermo_style	custom step atoms ke c_1 f_ts[1] f_ts[2] cpu
 thermo		10000
 thermo_modify	lost ignore norm no flush yes
-compute_modify	thermo_temp dynamic yes
+compute_modify	thermo_temp dynamic yesH
 
 # particle dump
-#variable        dmp_stp equal "floor(v_dmp_time / v_t_step)"
 dump		dmp all custom ${dmp_stp} ${dmp_dir}/d_*.liggghts & 
 		id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius 
-	
-	
+
+variable prnt_time equal 0.001
+variable prnt_stp equal floor(${prnt_time}/${t_step})
+variable real_prnt_time equal ${prnt_stp}*${t_step}
+
+variable z equal z[1]
+variable vz equal vz[1]
+variable fz equal fz[1]
+
+variable t equal time
+
+fix output all print ${prnt_stp} "$t $z ${vz} ${fz}" title "# t z vz fz" file ${dmp_dir}/coords.txt

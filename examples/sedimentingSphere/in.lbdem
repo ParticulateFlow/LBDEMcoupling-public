@@ -1,4 +1,5 @@
 echo both
+log ${dmp_dir}/log.liggghts
 
 units		si
 atom_style	granular
@@ -9,7 +10,7 @@ communicate	single vel yes
 boundary	f f f
 newton		off
 
-processors 1 1 *
+processors 2 2 *
 
 region		box block 0. 0.1 0. 0.1 0. 0.16 units box
 create_box	1 box
@@ -20,9 +21,9 @@ neighbor	${skin} bin
 neigh_modify	delay 0 binsize 0.03
 
 
-fix 		m1 all property/global youngsModulus peratomtype 1e8
+fix 		m1 all property/global youngsModulus peratomtype 1e6
 fix 		m2 all property/global poissonsRatio peratomtype 0.4
-fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.4
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.02
 fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.45
 fix 		m5 all property/global coefficientRollingFriction peratomtypepair 1 0.020
 
@@ -41,15 +42,15 @@ variable g_red equal 9.81*(${rho_solid}-${rho_fluid})/${rho_solid}
 fix grav all gravity ${g_red} vector 0 0 -1
 
 
-
 fix zwalls1 all wall/gran model hertz tangential history primitive type 1 zplane 0.
 
 #lattice sc 1
 variable d_part equal 0.015
-variable z0 equal 0.12+${d_part}/2
+#variable z0 equal 0.12+${d_part}/2
+variable z0 equal 0.12+${d_part}*0.65
 create_atoms 1 single 0.05 0.05 ${z0}
 
 set group all diameter ${d_part} density ${rho_solid}
 
 run 1
-# run 10
+
