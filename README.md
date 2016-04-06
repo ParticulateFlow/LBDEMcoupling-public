@@ -1,6 +1,7 @@
 # LBDEMcoupling
 
 * [About](#about)
+* [Compatibility](#compatibility)
 * [Installation](#installation)
 * [Setting Up a Simulation](#setting_up)
 * [Implicit Assumptions, Known Issues](#assumptions)
@@ -17,6 +18,15 @@ Palabos (http://www.palabos.org) and the Discrete Element Method code
 LIGGGHTS® (http://www.ligggghts.com). It implements the model of Noble
 and Torczinsky [[1]](#ref1) for resolved coupling between particles
 and a fluid phase.
+
+<a name="compatibility"></a>
+## Compatibility
+
+Currently, LBDEMcoupling is compatible with the following versions:
+* LIGGGHTS 3.1
+* Palabos v1.5r1
+
+We are working on establishing compatibility with the latest version of LIGGGHTS.
 
 <a name="installation"></a>
 ## Installation
