@@ -93,7 +93,7 @@ partition.
 
 If you come across a multiple definition error during compilation,
 please consult ![this
-thread](http://www.palabos.org/forum/read.php?11,6746,7581#msg-7581)
+thread](http://www.palabos.org/forum/read.php?11,6746,7581)
 in the Palabos forum.
 
 <a name="compilerswitches"></a>
