@@ -52,7 +52,8 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   class IBcompositeDynamics : public CompositeDynamics<T,Descriptor> {
   public:
-    IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_, bool automaticPrepareCollision_);
+    IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
+                        bool automaticPrepareCollision_ = true);
     IBcompositeDynamics(const IBcompositeDynamics &orig);
     IBcompositeDynamics(HierarchicUnserializer &unserializer);
     ~IBcompositeDynamics();

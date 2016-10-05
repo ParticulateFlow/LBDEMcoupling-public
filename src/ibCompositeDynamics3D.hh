@@ -61,7 +61,7 @@ namespace plb {
 
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
-							 bool automaticPrepareCollision_ = true)
+							 bool automaticPrepareCollision_)
     : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_), 
       particleData()
   { }
@@ -177,7 +177,11 @@ namespace plb {
     } else {
       T const omega = CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega();
       T const ooo = 1./omega-0.5;
+      #ifdef LBDEM_USE_WEIGHING
       T const B = particleData.solidFraction*ooo/((1.- particleData.solidFraction) + ooo);
+      #else
+      T const B = particleData.solidFraction;
+      #endif
       T const oneMinB = 1. - B;
 
       cell[0] = fPre[0] + oneMinB*(cell[0] - fPre[0]);
