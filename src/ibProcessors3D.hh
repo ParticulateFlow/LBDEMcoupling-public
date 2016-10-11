@@ -52,6 +52,9 @@ namespace plb{
   void SetSingleSphere3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice)
   {
     Dot3D const relativePosition = lattice.getLocation();
+   
+    IBcompositeDynamics<T,Descriptor> myCdyn(new NoDynamics<T,Descriptor>());
+    plint const ibID = myCdyn.getId();
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -59,11 +62,11 @@ namespace plb{
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
 
+          while(dyn->isComposite() && dyn->getId() != ibID)
+            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
+
           // no composite --> no IB
           if(!dyn->isComposite()) continue;
-          // pcout << "is composite" << std::endl;
-          if(dyn->isBoundary())
-            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();
 
           IBcompositeDynamics<T,Descriptor> *cDyn = 
             static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
@@ -77,7 +80,7 @@ namespace plb{
           T const sf_old = particleData.solidFraction;
           int const id_old = (int) particleData.partId;
           
-          
+                    
           T const dx = xGlobal - x[0];
           T const dy = yGlobal - x[1];
           T const dz = zGlobal - x[2];
@@ -109,6 +112,7 @@ namespace plb{
           // if desired, initialize interior of sphere with sphere velocity
           if(initVelFlag && sf > SOLFRAC_MAX)
             cell.defineVelocity(particleData.uPart);
+
         }
       }
     }
@@ -147,11 +151,11 @@ namespace plb{
       T const dz = dz_+delta; dz_sq[i] = dz*dz;
     }
 
-    plint n(0);
+    pluint n(0);
     for(plint i=0;i<slicesPerDim;i++){
       for(plint j=0;j<slicesPerDim;j++){
         for(plint k=0;k<slicesPerDim;k++){
-          if(dx_sq[i] + dy_sq[j] + dz_sq[k] < r_sq) n++;
+          n += (dx_sq[i] + dy_sq[j] + dz_sq[k] < r_sq);
         }
       }
     }
@@ -206,6 +210,9 @@ namespace plb{
   {
     Dot3D const relativePosition = lattice.getLocation();
     
+    IBcompositeDynamics<T,Descriptor> myCdyn(new NoDynamics<T,Descriptor>());
+    plint const ibID = myCdyn.getId();
+
     // "real" domain size is nx-2 etc
     plint nx = lattice.getNx()-2, ny = lattice.getNy()-2, nz = lattice.getNz()-2;
 
@@ -216,11 +223,11 @@ namespace plb{
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
 
+          while(dyn->isComposite() && dyn->getId() != ibID)
+            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
 
           // no composite --> no IB
           if(!dyn->isComposite()) continue;
-          if(dyn->isBoundary())
-            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();
 
           IBcompositeDynamics<T,Descriptor> *cDyn = 
             static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
