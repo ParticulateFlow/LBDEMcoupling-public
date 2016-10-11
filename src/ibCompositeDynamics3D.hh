@@ -60,11 +60,33 @@ namespace plb {
     meta::registerGeneralDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
 
   template<typename T, template<typename U> class Descriptor>
+  Array<pluint,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::iOpposite =
+    Array<pluint,Descriptor<T>::q>();
+
+  template<typename T, template<typename U> class Descriptor>
+  Array<T,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::fEqSolid =
+    Array<T,Descriptor<T>::q>();
+
+  template<typename T, template<typename U> class Descriptor>
+  Array<T,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::fPre =
+    Array<T,Descriptor<T>::q>();
+
+  template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
 							 bool automaticPrepareCollision_)
     : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_), 
       particleData()
-  { }
+  { 
+    static bool init_iOpposite = false;
+    if(!init_iOpposite){
+      plint const shift = Descriptor<T>::q/2;
+      iOpposite[0] = 0;
+      for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
+        iOpposite[iPop] = iPop <= shift ? iPop + shift : iPop - shift;
+      }      
+      init_iOpposite = true;
+    }
+  }
   
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(HierarchicUnserializer &unserializer)
@@ -77,8 +99,8 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(const IBcompositeDynamics &orig)
     : CompositeDynamics<T,Descriptor>(orig),
-      particleData(orig.particleData),
-      fPre(orig.fPre)
+      particleData(orig.particleData)//,
+      //      fPre(orig.fPre)
   { }
   
   template<typename T, template<typename U> class Descriptor>
@@ -149,25 +171,15 @@ namespace plb {
     if(particleData.solidFraction < SOLFRAC_MIN)
       return;
 
-    
-    // compute equilibrium distributions for solid velocity
-    Array<T,Descriptor<T>::q> fEqSolid;
-
     T const rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
     Array<T,Descriptor<T>::d> uPart = particleData.uPart*(1.+rhoBar);
     T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
     CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEqSolid,rhoBar,uPart,uPartSqr);
 
-    // T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(particleData.uPart); 
-    // CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,0.,particleData.uPart,uPartSqr);
-    
     if(particleData.solidFraction > SOLFRAC_MAX){
       cell[0] = fPre[0];
       for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
-        plint const shift = Descriptor<T>::q/2;
-        plint iOpposite = iPop <= shift ? iPop + shift : iPop - shift;
-        
-        T coll = 0.5*(fPre[iOpposite] - fEqSolid[iOpposite] + fEqSolid[iPop] - fPre[iPop]);
+        T coll = 0.5*(fPre[iOpposite[iPop]] - fEqSolid[iOpposite[iPop]] + fEqSolid[iPop] - fPre[iPop]);
         
         cell[iPop] = fPre[iPop] + coll;
 
@@ -175,22 +187,20 @@ namespace plb {
           particleData.hydrodynamicForce[iDim] -= Descriptor<T>::c[iPop][iDim]*coll;
       }
     } else {
-      T const omega = CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega();
-      T const ooo = 1./omega-0.5;
+      T const ooo = 1./CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega() - 0.5;
+
       #ifdef LBDEM_USE_WEIGHING
       T const B = particleData.solidFraction*ooo/((1.- particleData.solidFraction) + ooo);
       #else
       T const B = particleData.solidFraction;
       #endif
+
       T const oneMinB = 1. - B;
 
       cell[0] = fPre[0] + oneMinB*(cell[0] - fPre[0]);
       
       for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
-        plint const shift = Descriptor<T>::q/2;
-        plint iOpposite = iPop <= shift ? iPop + shift : iPop - shift;
-
-        T coll = -B*0.5*(fPre[iOpposite] - fEqSolid[iOpposite] + fEqSolid[iPop] - fPre[iPop]);
+        T coll = -B*0.5*(fPre[iOpposite[iPop]] - fEqSolid[iOpposite[iPop]] + fEqSolid[iPop] - fPre[iPop]);
 
         cell[iPop] = fPre[iPop] + oneMinB*(cell[iPop] - fPre[iPop]) - coll;
 

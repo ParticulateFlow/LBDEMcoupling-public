@@ -69,14 +69,20 @@ namespace plb {
     virtual void collide(Cell<T,Descriptor>& cell,  BlockStatistics& statistics);
 
     IBdynamicsParticleData<T,Descriptor> particleData;
-    Array<T,Descriptor<T>::q> fPre; // pre-collision populations
     
     virtual void defineVelocity(Cell<T,Descriptor>& cell, 
                                 Array<T,Descriptor<T>::d> const& u);
 
   private:
-    static int id;    
+    static int id;  
 
+    // performance tweaks
+    // // precompute opposite indices - done in constructor
+    static Array<pluint,Descriptor<T>::q> iOpposite;
+    // // have static variables for some temporary quantities
+    // // to save memory
+    static Array<T,Descriptor<T>::q> fEqSolid;
+    static Array<T,Descriptor<T>::q> fPre;
   };
 
 }; /* namespace plb */
