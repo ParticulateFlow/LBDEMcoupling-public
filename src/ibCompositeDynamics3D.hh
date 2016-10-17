@@ -178,6 +178,7 @@ namespace plb {
 
     if(particleData.solidFraction > SOLFRAC_MAX){
       cell[0] = fPre[0];
+
       for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
         T coll = 0.5*(fPre[iOpposite[iPop]] - fEqSolid[iOpposite[iPop]] + fEqSolid[iPop] - fPre[iPop]);
         
@@ -198,7 +199,7 @@ namespace plb {
       T const oneMinB = 1. - B;
 
       cell[0] = fPre[0] + oneMinB*(cell[0] - fPre[0]);
-      
+
       for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
         T coll = -B*0.5*(fPre[iOpposite[iPop]] - fEqSolid[iOpposite[iPop]] + fEqSolid[iPop] - fPre[iPop]);
 
