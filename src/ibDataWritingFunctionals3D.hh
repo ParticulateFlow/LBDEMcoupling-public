@@ -32,6 +32,9 @@ namespace plb {
   process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
           ScalarField3D<T2>& data) 
   {
+    IBcompositeDynamics<T1,Descriptor> myCdyn(new NoDynamics<T1,Descriptor>());
+    plint const ibID = myCdyn.getId();
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -39,6 +42,11 @@ namespace plb {
           Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
           T1 val = 0;
+
+          while(dyn->isComposite() && dyn->getId() != ibID)
+            dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
+
+
           if(dyn->isComposite()){
             IBcompositeDynamics<T1,Descriptor> *cDyn = 
               static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
@@ -82,6 +90,10 @@ namespace plb {
   process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
           TensorField3D<T2,nDim>& data) 
   {
+
+    IBcompositeDynamics<T1,Descriptor> myCdyn(new NoDynamics<T1,Descriptor>());
+    plint const ibID = myCdyn.getId();
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -90,6 +102,10 @@ namespace plb {
           Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
           Array<T2,nDim> val;
           val.resetToZero();
+
+          while(dyn->isComposite() && dyn->getId() != ibID)
+            dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
+
           if(dyn->isComposite()){
             IBcompositeDynamics<T1,Descriptor> *cDyn = 
               static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
