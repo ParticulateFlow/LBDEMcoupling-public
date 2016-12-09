@@ -25,29 +25,9 @@
 #ifndef IB_COMPOSITE_DYNAMICS_H_LBDEM
 #define IB_COMPOSITE_DYNAMICS_H_LBDEM
 
+#include "ibDynamicsParticleData.h"
+
 namespace plb {
-
-  template<typename T, template<typename U> class Descriptor>
-  struct IBdynamicsParticleData {
-  public:
-    IBdynamicsParticleData() : partId(0),solidFraction(0.) 
-    {
-      uPart.resetToZero();
-      hydrodynamicForce.resetToZero();
-    }
-    IBdynamicsParticleData(IBdynamicsParticleData const &orig)
-      : partId(orig.partId), solidFraction(orig.solidFraction),
-        uPart(orig.uPart), hydrodynamicForce(orig.hydrodynamicForce) {}
-    plint partId;
-    T solidFraction;
-    Array<T,Descriptor<T>::d> uPart;
-    Array<T,Descriptor<T>::d> hydrodynamicForce;
-
-    void serialize(HierarchicSerializer& serializer) const;
-    void unserialize(HierarchicUnserializer& unserializer);
-
-  };
-  
 
   template<typename T, template<typename U> class Descriptor>
   class IBcompositeDynamics : public CompositeDynamics<T,Descriptor> {
