@@ -23,34 +23,6 @@
 
 namespace plb {
 
-  template<typename T, template<typename U> class Descriptor>
-  void IBdynamicsParticleData<T,Descriptor>::serialize(HierarchicSerializer &serializer) const
-  {
-
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      serializer.addValue(uPart[i]);
-
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      serializer.addValue(hydrodynamicForce[i]);
-    
-    serializer.addValue(solidFraction);
-    serializer.addValue<plint>(partId);
-
-  }
-
-  template<typename T, template<typename U> class Descriptor>
-  void IBdynamicsParticleData<T,Descriptor>::unserialize(HierarchicUnserializer &unserializer)
-  {
-
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      unserializer.readValue(uPart[i]);
-
-    for(plint i=0;i<Descriptor<T>::d;i++)
-      unserializer.readValue(hydrodynamicForce[i]);
-
-    unserializer.readValue(solidFraction);
-    unserializer.readValue<plint>(partId);
-  }
 
 };
 

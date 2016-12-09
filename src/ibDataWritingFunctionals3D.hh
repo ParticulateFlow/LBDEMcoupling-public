@@ -43,22 +43,28 @@ namespace plb {
           Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
           T1 val = 0;
 
-          while(dyn->isComposite() && dyn->getId() != ibID)
-            dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
-
-
-          if(dyn->isComposite()){
-            IBcompositeDynamics<T1,Descriptor> *cDyn = 
-              static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
-            switch(which){
-            case SolidFraction:
-              val = (T2) cDyn->particleData.solidFraction;
-              break;
-            case ParticleId:
-              val = (T2) cDyn->particleData.partId;
-              break;
-            
+          if(dyn->getId() != ibID){
+            while(dyn->getId() != ibID && dyn->isComposite()){
+              dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
             }
+            // no composite --> no IB
+            if(dyn->getId() != ibID) continue;
+          }
+          // IBcompositeDynamics<T,Descriptor> *cDyn = 
+          //   static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
+          
+          IBdynamicsParticleData<T1,Descriptor> &particleData =
+            *reinterpret_cast<IBdynamicsParticleData<T1,Descriptor>* >(dyn);
+
+
+          switch(which){
+          case SolidFraction:
+            val = (T2) particleData.solidFraction;
+            break;
+          case ParticleId:
+            val = (T2) particleData.partId;
+            break;
+            
           
           }
           data.get(iX,iY,iZ) = val;
@@ -103,23 +109,29 @@ namespace plb {
           Array<T2,nDim> val;
           val.resetToZero();
 
-          while(dyn->isComposite() && dyn->getId() != ibID)
-            dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
-
-          if(dyn->isComposite()){
-            IBcompositeDynamics<T1,Descriptor> *cDyn = 
-              static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
-            switch(which){
-            case ParticleVelocity:
-              val = cDyn->particleData.uPart;
-              break;
-            case HydrodynamicForce:
-              val = cDyn->particleData.hydrodynamicForce;
-              break;
-
+          if(dyn->getId() != ibID){
+            while(dyn->getId() != ibID && dyn->isComposite()){
+              dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
             }
-
+            // no composite --> no IB
+            if(dyn->getId() != ibID) continue;
           }
+          // IBcompositeDynamics<T,Descriptor> *cDyn = 
+          //   static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
+          
+          IBdynamicsParticleData<T1,Descriptor> &particleData =
+            *reinterpret_cast<IBdynamicsParticleData<T1,Descriptor>* >(dyn);
+
+          switch(which){
+          case ParticleVelocity:
+            val = particleData.uPart;
+            break;
+          case HydrodynamicForce:
+            val = particleData.hydrodynamicForce;
+            break;
+            
+          }
+          
           data.get(iX,iY,iZ) = val;
         }
       }

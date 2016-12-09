@@ -69,7 +69,6 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBstandaloneTRTdynamics<T,Descriptor>::IBstandaloneTRTdynamics(T const omega_, T const lambda_)
     : IsoThermalBulkDynamics<T,Descriptor>(omega_), 
-    particleData(),
     lambda(lambda_)
   { }
   
@@ -84,7 +83,7 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBstandaloneTRTdynamics<T,Descriptor>::IBstandaloneTRTdynamics(const IBstandaloneTRTdynamics &orig)
     : IsoThermalBulkDynamics<T,Descriptor>(orig),
-    particleData(orig.particleData),
+    IBdynamicsParticleData<T,Descriptor>(orig),
     lambda(orig.lambda)
   { }
   
@@ -106,7 +105,7 @@ namespace plb {
   void IBstandaloneTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer &serializer) const
   {
 
-    particleData.serialize(serializer);
+    this->particleData.serialize(serializer);
     serializer.addValue(lambda);
     IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
   }
@@ -116,7 +115,7 @@ namespace plb {
   {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
 
-    particleData.unserialize(unserializer);
+    this->particleData.unserialize(unserializer);
     unserializer.readValue<T>(lambda);
     IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
   }
@@ -139,7 +138,7 @@ namespace plb {
                                                   BlockStatistics& statistics)
   {
     // reset all forces to zero, regardless of what is going on
-    particleData.hydrodynamicForce.resetToZero();
+    this->particleData.hydrodynamicForce.resetToZero();
 
     Array<T,3> j;
     T rhoBar;
@@ -158,11 +157,11 @@ namespace plb {
 
     T const omega_plus = this->getOmega();
     T const omega_minus = ( 4. - 2.*omega_plus )/( 4.*lambda*omega_plus + 2. - omega_plus );
-      
-    T const fs = particleData.solidFraction;
 
+    T const fs = this->particleData.solidFraction;
+    
     // no solid --> regular TRT collision
-    if(particleData.solidFraction < SOLFRAC_MIN){
+    if(fs < SOLFRAC_MIN){
       cell[0] += -omega_plus*(cell[0] - fEq[0]);
       
       for (plint i=1; i<=Descriptor<T>::q/2; ++i) {
@@ -173,7 +172,7 @@ namespace plb {
     }
 
     // for the moment, only implement "traditional" N-T collision
-    Array<T,Descriptor<T>::d> uPart = particleData.uPart*(1.+rhoBar);
+    Array<T,Descriptor<T>::d> uPart = this->particleData.uPart*(1.+rhoBar);
     T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
     dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria(rhoBar, invRho, uPart, uPartSqr, fEqSolid);
     for (plint i=1; i<=Descriptor<T>::q/2; ++i) {
@@ -181,7 +180,8 @@ namespace plb {
       fEqSolid_minus[i] = 0.5*(fEqSolid[i] - fEqSolid[i+Descriptor<T>::q/2]);
     }
 
-    T const b_plus = calcB(omega_plus,fs), b_minus = calcB(omega_minus,fs);
+    T const b_plus = calcB(omega_plus,fs),
+      b_minus = calcB(omega_minus,fs);
     T const one_min_b_plus = 1. - b_plus, one_min_b_minus = 1. - b_minus;
 
     // treat f[0] separately
@@ -202,7 +202,7 @@ namespace plb {
       cell[iOp] += coll_plus - coll_minus;
 
       for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-        particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[i][iDim]*coll_plus;
+        this->particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[i][iDim]*coll_plus;
 
     }    
     

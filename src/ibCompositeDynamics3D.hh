@@ -26,7 +26,7 @@
 namespace plb {
   template<typename T, template<typename U> class Descriptor>
   int IBcompositeDynamics<T,Descriptor>::id =
-    meta::registerGeneralDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
+    meta::registerGeneralDynamics3D<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
 
   template<typename T, template<typename U> class Descriptor>
   Array<pluint,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::iOpposite =
@@ -41,10 +41,10 @@ namespace plb {
     Array<T,Descriptor<T>::q>();
 
   template<typename T, template<typename U> class Descriptor>
-  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
+  IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics3D<T,Descriptor>* baseDynamics_,
 							 bool automaticPrepareCollision_)
     : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_), 
-      particleData()
+      IBdynamicsParticleData()
   { 
     static bool init_iOpposite = false;
     if(!init_iOpposite){
@@ -59,7 +59,8 @@ namespace plb {
   
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(HierarchicUnserializer &unserializer)
-    : CompositeDynamics<T,Descriptor>(0,false)
+    : CompositeDynamics<T,Descriptor>(0,false),
+    IBdynamicsParticleData()
   {
     // pcout << "entering serialize constructor" << std::endl;
     unserialize(unserializer);
@@ -68,8 +69,7 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(const IBcompositeDynamics &orig)
     : CompositeDynamics<T,Descriptor>(orig),
-      particleData(orig.particleData)//,
-      //      fPre(orig.fPre)
+      IBdynamicsParticleData(orig)
   { }
   
   template<typename T, template<typename U> class Descriptor>

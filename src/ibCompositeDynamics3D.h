@@ -30,7 +30,9 @@
 namespace plb {
 
   template<typename T, template<typename U> class Descriptor>
-  class IBcompositeDynamics : public CompositeDynamics<T,Descriptor> {
+  class IBcompositeDynamics : public CompositeDynamics<T,Descriptor>,
+                              public IBdynamicsParticleData<T,Descriptor>
+  {
   public:
 
     IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
@@ -52,9 +54,6 @@ namespace plb {
     virtual void defineVelocity(Cell<T,Descriptor>& cell, 
                                 Array<T,Descriptor<T>::d> const& u);
 
-    IBdynamicsParticleData<T,Descriptor> particleData;
-
-
   private:
     static int id;  
 
@@ -71,4 +70,4 @@ namespace plb {
 
 #include "ibCompositeDynamics3D.hh"
 
-#endif /* IB_COMPOSITE_DYNAMICS_H_LBDEM */
+#endif /* IB_COMPOSITE_DYNAMICS3D_H_LBDEM */

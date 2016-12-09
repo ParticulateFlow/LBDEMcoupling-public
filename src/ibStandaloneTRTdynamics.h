@@ -30,7 +30,9 @@
 namespace plb {
 
   template<typename T, template<typename U> class Descriptor>
-  class IBstandaloneTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+  class IBstandaloneTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor>,
+                                  public IBdynamicsParticleData <T,Descriptor>
+  {
   public:
 
     IBstandaloneTRTdynamics(T const omega_, T const lambda_= 3./16.);
@@ -49,8 +51,6 @@ namespace plb {
 
     virtual void defineVelocity(Cell<T,Descriptor>& cell, 
                                 Array<T,Descriptor<T>::d> const& u);
-
-    IBdynamicsParticleData<T,Descriptor> particleData;
 
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar) const;
