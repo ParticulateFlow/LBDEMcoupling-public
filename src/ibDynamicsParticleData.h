@@ -46,6 +46,6 @@ namespace plb {
 
 }
 
-#include ibDynamicsParticleData.hh
+#include "ibDynamicsParticleData.hh"
 
 #endif /* IB_DYNAMICS_PARTICLE_DATA_H_LBDEM */
