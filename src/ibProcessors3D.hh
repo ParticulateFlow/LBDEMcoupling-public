@@ -62,12 +62,13 @@ namespace plb{
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
 
-          while(dyn->isComposite() && dyn->getId() != ibID)
-            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
-
-          // no composite --> no IB
-          if(!dyn->isComposite()) continue;
-
+          if(dyn->getId() != ibID){
+            while(dyn->getId() != ibID && dyn->isComposite()){
+              dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
+            }
+            // no composite --> no IB
+            if(dyn->getId() != ibID) continue;
+          }
           IBcompositeDynamics<T,Descriptor> *cDyn = 
             static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
           
@@ -223,16 +224,19 @@ namespace plb{
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
 
-          while(dyn->isComposite() && dyn->getId() != ibID)
-            dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
+          if(dyn->getId() != ibID){
+            while(dyn->getId() != ibID && dyn->isComposite()){
+              dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
+            }
 
-          // no composite --> no IB
-          if(!dyn->isComposite()) continue;
-
+            // still not IB --> continue
+            if(dyn->getId() != ibID) continue;
+          }
           IBcompositeDynamics<T,Descriptor> *cDyn = 
             static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
 
-          IBdynamicsParticleData<T,Descriptor> const particleData = cDyn->particleData;
+          IBdynamicsParticleData<T,Descriptor> const &particleData = cDyn->particleData;
+
           // LIGGGHTS indices start at 1
           plint const id = particleData.partId;
 

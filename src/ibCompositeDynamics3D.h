@@ -52,6 +52,7 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   class IBcompositeDynamics : public CompositeDynamics<T,Descriptor> {
   public:
+
     IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
                         bool automaticPrepareCollision_ = true);
     IBcompositeDynamics(const IBcompositeDynamics &orig);
@@ -68,10 +69,11 @@ namespace plb {
     virtual void prepareCollision(Cell<T,Descriptor>& cell);
     virtual void collide(Cell<T,Descriptor>& cell,  BlockStatistics& statistics);
 
-    IBdynamicsParticleData<T,Descriptor> particleData;
-    
     virtual void defineVelocity(Cell<T,Descriptor>& cell, 
                                 Array<T,Descriptor<T>::d> const& u);
+
+    IBdynamicsParticleData<T,Descriptor> particleData;
+
 
   private:
     static int id;  
