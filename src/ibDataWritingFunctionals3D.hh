@@ -54,15 +54,15 @@ namespace plb {
           //   static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
           
           IBdynamicsParticleData<T1,Descriptor> &particleData =
-            *reinterpret_cast<IBdynamicsParticleData<T1,Descriptor>* >(dyn);
+            *dynamic_cast<IBdynamicsParticleData<T1,Descriptor>* >(dyn);
 
 
           switch(which){
           case SolidFraction:
-            val = (T2) particleData.solidFraction;
+            val = (T2) particleData.particleData.solidFraction;
             break;
           case ParticleId:
-            val = (T2) particleData.partId;
+            val = (T2) particleData.particleData.partId;
             break;
             
           
@@ -120,7 +120,7 @@ namespace plb {
           //   static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
           
           IBdynamicsParticleData<T1,Descriptor> &particleData =
-            *reinterpret_cast<IBdynamicsParticleData<T1,Descriptor>* >(dyn);
+            *dynamic_cast<IBdynamicsParticleData<T1,Descriptor>* >(dyn);
 
           switch(which){
           case ParticleVelocity:

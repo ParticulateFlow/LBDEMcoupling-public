@@ -95,7 +95,7 @@ namespace plb{
           T const dz_com = zGlobal - com[2];
 
           T const sf = calcSolidFraction(dx,dy,dz,r);
-          
+
           plint const decFlag = (sf > SOLFRAC_MIN) + 2*(sf_old > SOLFRAC_MIN);
           
           switch(decFlag){
@@ -224,7 +224,7 @@ namespace plb{
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-          
+
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
           Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
 
@@ -236,16 +236,13 @@ namespace plb{
             // still not IB --> continue
             if(dyn->getId() != ibID) continue;
           }
-          // IBcompositeDynamics<T,Descriptor> *cDyn = 
-          //   static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
 
           IBdynamicsParticleData<T,Descriptor> &particleData =
-            *reinterpret_cast<IBdynamicsParticleData<T,Descriptor>* >(dyn);
+            *dynamic_cast<IBdynamicsParticleData<T,Descriptor>* >(dyn);
           
 
           // LIGGGHTS indices start at 1
           plint const id = particleData.particleData.partId;
-
           if(id < 1) continue; // no particle here
 
           plint const ind = wrapper.lmp->atom->map(id);
@@ -283,7 +280,6 @@ namespace plb{
           addTorque(ind,0,torqueX);
           addTorque(ind,1,torqueY);
           addTorque(ind,2,torqueZ);
-          
         }
       }
     }
