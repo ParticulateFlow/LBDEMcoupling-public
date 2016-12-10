@@ -18,8 +18,8 @@
  * Author: Philippe Seil (philippe.seil@jku.at)
  */
 
-#ifndef IB_COMPOSITE_DYNAMICS_HH_LBDEM
-#define IB_COMPOSITE_DYNAMICS_HH_LBDEM
+#ifndef IB_STANDALONE_TRT_DYNAMICS_HH_LBDEM
+#define IB_STANDALONE_TRT_DYNAMICS_HH_LBDEM
 
 #include "ibDef.h"
 
@@ -220,4 +220,4 @@ namespace plb {
   
 }; /* namespace plb */
 
-#endif /* IB_COMPOSITE_DYNAMICS_HH_LBDEM */
+#endif /* IB_STANDALONE_TRT_DYNAMICS_HH_LBDEM */
