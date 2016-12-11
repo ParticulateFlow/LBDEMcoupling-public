@@ -21,6 +21,7 @@
 #include "ibDef.h"
 #include "ibCompositeDynamics3D.h"
 #include "ibDynamicsParticleData.h"
+#include "utils.h"
 
 #include "lammps.h"
 #include "atom.h"
@@ -52,28 +53,16 @@ namespace plb{
   void SetSingleSphere3D<T,Descriptor>::process(Box3D domain, BlockLattice3D<T,Descriptor> &lattice)
   {
     Dot3D const relativePosition = lattice.getLocation();
-   
-    IBcompositeDynamics<T,Descriptor> myCdyn(new NoDynamics<T,Descriptor>());
-    plint const ibID = myCdyn.getId();
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
-          Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
-
-          if(dyn->getId() != ibID){
-            while(dyn->getId() != ibID && dyn->isComposite()){
-              dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
-            }
-            // no composite --> no IB
-            if(dyn->getId() != ibID) continue;
-          }
-          // IBcompositeDynamics<T,Descriptor> *cDyn = 
-          //   static_cast< IBcompositeDynamics<T,Descriptor>* >( dyn );
           
-          IBdynamicsParticleData<T,Descriptor> &particleData =
-            *dynamic_cast<IBdynamicsParticleData<T,Descriptor>* >(dyn);
+          IBdynamicsParticleData<T,Descriptor>* particleData =
+            getParticleDataFromCell<T,Descriptor>(cell);
+
+          if(!particleData) continue;
           
           T const xGlobal = (T) (relativePosition.x + iX);
           T const yGlobal = (T) (relativePosition.y + iY);
@@ -82,8 +71,8 @@ namespace plb{
           // particleData is a _member_ of IBdynamicsParticleData
           // this was done because dynamics classes inherit from it
           // and so all the data remain bundled in one place
-          T const sf_old = particleData.particleData.solidFraction;
-          int const id_old = (int) particleData.particleData.partId;
+          T const sf_old = particleData->particleData.solidFraction;
+          int const id_old = (int) particleData->particleData.partId;
           
                     
           T const dx = xGlobal - x[0];
@@ -100,23 +89,23 @@ namespace plb{
           
           switch(decFlag){
           case 0: // sf == 0 && sf_old == 0
-            setToZero(particleData.particleData);
+            setToZero(particleData->particleData);
             break; // do nothing
           case 1: // sf > 0 && sf_old == 0
-            setValues(particleData.particleData,sf,dx_com,dy_com,dz_com);
+            setValues(particleData->particleData,sf,dx_com,dy_com,dz_com);
             break;
           case 2: // sf == 0 && sf_old > 0
             if( id_old == id ) // then particle has left this cell
-              setToZero(particleData.particleData);
+              setToZero(particleData->particleData);
             break; // else do nothing
           case 3: // sf > 0 && sf_old > 0
             if( sf > sf_old || id_old == id )
-              setValues(particleData.particleData,sf,dx_com,dy_com,dz_com);
+              setValues(particleData->particleData,sf,dx_com,dy_com,dz_com);
             break; // else do nothing
           }
           // if desired, initialize interior of sphere with sphere velocity
           if(initVelFlag && sf > SOLFRAC_MAX)
-            cell.defineVelocity(particleData.particleData.uPart);
+            cell.defineVelocity(particleData->particleData.uPart);
 
         }
       }
@@ -215,9 +204,6 @@ namespace plb{
   {
     Dot3D const relativePosition = lattice.getLocation();
     
-    IBcompositeDynamics<T,Descriptor> myCdyn(new NoDynamics<T,Descriptor>());
-    plint const ibID = myCdyn.getId();
-
     // "real" domain size is nx-2 etc
     plint nx = lattice.getNx()-2, ny = lattice.getNy()-2, nz = lattice.getNz()-2;
 
@@ -226,23 +212,14 @@ namespace plb{
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
 
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
-          Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
 
-          if(dyn->getId() != ibID){
-            while(dyn->getId() != ibID && dyn->isComposite()){
-              dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();       
-            }
+          IBdynamicsParticleData<T,Descriptor>* particleData =
+            getParticleDataFromCell<T,Descriptor>(cell);
 
-            // still not IB --> continue
-            if(dyn->getId() != ibID) continue;
-          }
-
-          IBdynamicsParticleData<T,Descriptor> &particleData =
-            *dynamic_cast<IBdynamicsParticleData<T,Descriptor>* >(dyn);
-          
+          if(!particleData) continue;
 
           // LIGGGHTS indices start at 1
-          plint const id = particleData.particleData.partId;
+          plint const id = particleData->particleData.partId;
           if(id < 1) continue; // no particle here
 
           plint const ind = wrapper.lmp->atom->map(id);
@@ -265,9 +242,9 @@ namespace plb{
           if(dz > nz/2) dz -= nz;
           else if(dz < -nz/2) dz += nz;
 	           
-          T const forceX = particleData.particleData.hydrodynamicForce[0];
-          T const forceY = particleData.particleData.hydrodynamicForce[1];
-          T const forceZ = particleData.particleData.hydrodynamicForce[2];
+          T const forceX = particleData->particleData.hydrodynamicForce[0];
+          T const forceY = particleData->particleData.hydrodynamicForce[1];
+          T const forceZ = particleData->particleData.hydrodynamicForce[2];
           
           T const torqueX = dy*forceZ - dz*forceY;
           T const torqueY = -dx*forceZ + dz*forceX;
