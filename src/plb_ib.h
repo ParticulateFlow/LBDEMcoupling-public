@@ -25,7 +25,7 @@
 #ifndef PLB_IB_H
 #define PLB_IB_H
 
-#include "ibStandaloneTRTdynamics.h"
+#include "ibStandaloneBGKdynamics.h"
 #include "ibCompositeDynamics3D.h"
 #include "ibProcessors3D.h"
 #include "ibDataWritingFunctionals3D.h"
