@@ -35,7 +35,7 @@ namespace plb {
   {
   public:
 
-    IBstandaloneBGKdynamics(T const omega_, T const lambda_= 3./16.);
+    IBstandaloneBGKdynamics(T const omega_);
     IBstandaloneBGKdynamics(const IBstandaloneBGKdynamics &orig);
     IBstandaloneBGKdynamics(HierarchicUnserializer &unserializer);
     ~IBstandaloneBGKdynamics();
@@ -56,12 +56,8 @@ namespace plb {
                                  T jSqr, T thetaBar) const;
   private:
     static int id;
-    T lambda;
 
-    static Array<T,Descriptor<T>::q> fPostColl, fEq, fEqSolid;
-    static Array<T,Descriptor<T>::q/2+1> fEq_plus, fEq_minus,
-      fEqSolid_plus, fEqSolid_minus,
-      f_plus, f_minus;
+    static Array<T,Descriptor<T>::q> fEq, fEqSolid;
 
     T calcB(T const omega, T const fs);
   };

@@ -39,37 +39,8 @@ namespace plb {
     Array<T,Descriptor<T>::q>();
 
   template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q> IBstandaloneBGKdynamics<T,Descriptor>::fPostColl =
-    Array<T,Descriptor<T>::q>();
-
-  template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q/2+1> IBstandaloneBGKdynamics<T,Descriptor>::f_plus
-    = Array<T,Descriptor<T>::q/2+1>();
-
-  template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q/2+1> IBstandaloneBGKdynamics<T,Descriptor>::f_minus
-    = Array<T,Descriptor<T>::q/2+1>();
-
-  template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q/2+1> IBstandaloneBGKdynamics<T,Descriptor>::fEq_plus
-    = Array<T,Descriptor<T>::q/2+1>();
-
-  template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q/2+1> IBstandaloneBGKdynamics<T,Descriptor>::fEq_minus
-    = Array<T,Descriptor<T>::q/2+1>();
-
-  template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q/2+1> IBstandaloneBGKdynamics<T,Descriptor>::fEqSolid_plus
-    = Array<T,Descriptor<T>::q/2+1>();
-
-  template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q/2+1> IBstandaloneBGKdynamics<T,Descriptor>::fEqSolid_minus
-    = Array<T,Descriptor<T>::q/2+1>();
-
-  template<typename T, template<typename U> class Descriptor>
-  IBstandaloneBGKdynamics<T,Descriptor>::IBstandaloneBGKdynamics(T const omega_, T const lambda_)
-    : IsoThermalBulkDynamics<T,Descriptor>(omega_), 
-    lambda(lambda_)
+  IBstandaloneBGKdynamics<T,Descriptor>::IBstandaloneBGKdynamics(T const omega_)
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_)
   { }
   
   template<typename T, template<typename U> class Descriptor>
@@ -82,8 +53,7 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBstandaloneBGKdynamics<T,Descriptor>::IBstandaloneBGKdynamics(const IBstandaloneBGKdynamics &orig)
     : IsoThermalBulkDynamics<T,Descriptor>(orig),
-    IBdynamicsParticleData<T,Descriptor>(orig),
-    lambda(orig.lambda)
+    IBdynamicsParticleData<T,Descriptor>(orig)
   { }
   
   template<typename T, template<typename U> class Descriptor>
@@ -105,7 +75,6 @@ namespace plb {
   {
 
     this->particleData.serialize(serializer);
-    serializer.addValue(lambda);
     IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
   }
 
@@ -115,7 +84,6 @@ namespace plb {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
 
     this->particleData.unserialize(unserializer);
-    unserializer.readValue<T>(lambda);
     IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
   }
   
