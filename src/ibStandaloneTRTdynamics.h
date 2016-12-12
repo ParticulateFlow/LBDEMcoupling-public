@@ -63,7 +63,7 @@ namespace plb {
       fEqSolid_plus, fEqSolid_minus,
       f_plus, f_minus;
 
-    T calcB(T const omega, T const fs) { return fs*(1./omega-0.5)/((1.-fs)-(1./omega-0.5)); }
+    T calcB(T const omega, T const fs);
   };
 
 }; /* namespace plb */
