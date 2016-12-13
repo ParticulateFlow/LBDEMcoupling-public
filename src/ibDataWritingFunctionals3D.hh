@@ -22,6 +22,8 @@
 #ifndef IBDATAWRITINGFUNCTIONALS3D_HH_LBDEM
 #define IBDATAWRITINGFUNCTIONALS3D_HH_LBDEM
 
+#include "utils.h"
+
 namespace plb {
   /* 
      implementation of getScalarQuantityFromDynamicsFunctional
@@ -32,34 +34,26 @@ namespace plb {
   process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
           ScalarField3D<T2>& data) 
   {
-    IBcompositeDynamics<T1,Descriptor> myCdyn(new NoDynamics<T1,Descriptor>());
-    plint const ibID = myCdyn.getId();
-
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+          T1 val = 0;
         
           Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
-          Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
-          T1 val = 0;
 
-          while(dyn->isComposite() && dyn->getId() != ibID)
-            dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
+          IBdynamicsParticleData<T1,Descriptor>* particleData =
+            getParticleDataFromCell<T1,Descriptor>(cell);
 
-
-          if(dyn->isComposite()){
-            IBcompositeDynamics<T1,Descriptor> *cDyn = 
-              static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
+          if(particleData){
             switch(which){
             case SolidFraction:
-              val = (T2) cDyn->particleData.solidFraction;
+              val = (T2) particleData->particleData.solidFraction;
               break;
             case ParticleId:
-              val = (T2) cDyn->particleData.partId;
+              val = (T2) particleData->particleData.partId;
               break;
-            
-            }
           
+            }
           }
           data.get(iX,iY,iZ) = val;
         }
@@ -90,35 +84,28 @@ namespace plb {
   process(Box3D domain, BlockLattice3D<T1,Descriptor>& lattice,
           TensorField3D<T2,nDim>& data) 
   {
-
-    IBcompositeDynamics<T1,Descriptor> myCdyn(new NoDynamics<T1,Descriptor>());
-    plint const ibID = myCdyn.getId();
-
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
             
-          Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
-          Dynamics<T1,Descriptor> *dyn = &(cell.getDynamics());
           Array<T2,nDim> val;
           val.resetToZero();
 
-          while(dyn->isComposite() && dyn->getId() != ibID)
-            dyn = &(static_cast<CompositeDynamics<T1,Descriptor>* >(dyn))->getBaseDynamics();       
+          Cell<T1,Descriptor>& cell = lattice.get(iX,iY,iZ);
 
-          if(dyn->isComposite()){
-            IBcompositeDynamics<T1,Descriptor> *cDyn = 
-              static_cast< IBcompositeDynamics<T1,Descriptor>* >( dyn );
+          IBdynamicsParticleData<T1,Descriptor>* particleData =
+            getParticleDataFromCell<T1,Descriptor>(cell);
+
+          if(particleData){
             switch(which){
             case ParticleVelocity:
-              val = cDyn->particleData.uPart;
+              val = particleData->particleData.uPart;
               break;
             case HydrodynamicForce:
-              val = cDyn->particleData.hydrodynamicForce;
+              val = particleData->particleData.hydrodynamicForce;
               break;
-
+            
             }
-
           }
           data.get(iX,iY,iZ) = val;
         }
