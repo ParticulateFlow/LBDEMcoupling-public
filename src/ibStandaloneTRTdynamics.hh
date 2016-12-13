@@ -150,7 +150,6 @@ namespace plb {
     T const omega_plus = this->getOmega();
     T const omega_minus =  ( 4. - 2.*omega_plus )/( 4.*lambda*omega_plus + 2. - omega_plus);
 
-    // pcout << "omega_plus " << omega_plus << " | omega_minus" << omega_minus << std::endl;
     
     T const fs = this->particleData.solidFraction;
 
@@ -177,18 +176,35 @@ namespace plb {
     // from Kruger's book, p. 422
     T const nu = Descriptor<T>::cs2*(1./omega_plus - 0.5);
     T const eta = Descriptor<T>::cs2*(1./omega_minus - 0.5) - nu/3.;
-    // pcout << "nu " << nu << " | eta " << eta << std::endl;
-    // for the moment, only implement "traditional" N-T collision
     Array<T,Descriptor<T>::d> jPart = this->particleData.uPart*(1.+rhoBar);
     T const jPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(jPart);
     dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria(rhoBar, invRho, jPart, jPartSqr, fEqSolid);
     
-    for(plint i=1;i<=Descriptor<T>::q/2;i++){
-      plint const iOpp = i + Descriptor<T>::q/2;
-      fEqSolid_plus[i] = 0.5*(fEqSolid[i]+fEqSolid[iOpp]);
-      fEqSolid_minus[i] = 0.5*(fEqSolid[i]-fEqSolid[iOpp]);
-    }
+    // for(plint i=1;i<=Descriptor<T>::q/2;i++){
+    //   plint const iOpp = i + Descriptor<T>::q/2;
+    //   fEqSolid_plus[i] = 0.5*(fEqSolid[i]+fEqSolid[iOpp]);
+    //   fEqSolid_minus[i] = 0.5*(fEqSolid[i]-fEqSolid[iOpp]);
+    // }
+    
+    // // Holdych if fs==1
+    // if(fs > SOLFRAC_MAX){
+    //   // cell[0] remains unchanged
+    //   for(plint i=1;i<=Descriptor<T>::q/2;i++){
+    //     plint const iOpp = i+Descriptor<T>::q/2;
+    //     T const coll = (cell[iOpp] - fEqSolid[iOpp]) - (cell[i] - fEqSolid[i]);
 
+    //     cell[i] += coll;
+    //     cell[iOpp] -= coll;
+
+    //     for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
+    //       this->particleData.hydrodynamicForce[iDim]
+    //         -= 2.*Descriptor<T>::c[i][iDim]*coll;        
+    //   }
+      
+    //   return;
+    // }
+/
+    // 0<fs<1 --> N-T collision
     T const b_plus = fs*nu*Descriptor<T>::invCs2 / ( (1.-fs) + nu*Descriptor<T>::invCs2 );
     T const b_minus = fs*eta*Descriptor<T>::invCs2 / ( (1.-fs) + eta*Descriptor<T>::invCs2 );
     // T const b_plus = fs*(1./omega_plus-0.5) / ( (1.-fs) + (1./omega_plus-0.5) );
@@ -196,11 +212,9 @@ namespace plb {
     T const one_min_b_plus = 1. - b_plus;
     T const one_min_b_minus = 1. - b_minus;
 
-    // pcout << "fs " << fs << " | b_plus " << b_plus << " | b_minus " << b_minus << std::endl;
-    
     {
       T const coll = b_plus*( (cell[0] - fEq[0]) - (cell[0] - fEqSolid[0]) );
-      cell[0] += -one_min_b_plus*omega_plus*(cell[0] - fEq[0]);// + coll;
+      cell[0] += -one_min_b_plus*omega_plus*(cell[0] - fEq[0]) + coll;
     }
 
     for(plint i=1;i<=Descriptor<T>::q/2;i++){
@@ -210,9 +224,11 @@ namespace plb {
       T const collOpp = b_plus*( (cell[i] - fEq[i]) - (cell[iOpp] - fEqSolid[iOpp]) );
 
       cell[i] += -omega_plus*one_min_b_plus*(f_plus[i] - fEq_plus[i])
-        - omega_minus*one_min_b_plus*(f_minus[i] - fEq_minus[i]) + coll;
+        - omega_minus*one_min_b_minus*(f_minus[i] - fEq_minus[i])
+        + coll;
       cell[iOpp] += -omega_plus*one_min_b_plus*(f_plus[i] - fEq_plus[i])
-        + omega_minus*one_min_b_plus*(f_minus[i] - fEq_minus[i]) + collOpp;
+        + omega_minus*one_min_b_minus*(f_minus[i] - fEq_minus[i])
+        + collOpp;
 
       for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
         this->particleData.hydrodynamicForce[iDim]
@@ -220,33 +236,6 @@ namespace plb {
       
     }    
 
-    // {
-    //   T const coll = b_plus*( fEqSolid[0] - fEq[0] );
-    //   cell[0] += -one_min_b_plus*omega_plus*(cell[0] - fEq[0]) + coll;
-    // }
-
-    // for(plint i=1;i<=Descriptor<T>::q/2;i++){
-    //   plint const iOpp = i + Descriptor<T>::q/2;
-
-    //   // // collision part
-    //   // cell[i] += -omega_plus*one_min_b_plus*(f_plus[i] - fEq_plus[i])
-    //   //   - omega_minus*one_min_b_minus*(f_minus[i] - fEq_minus[i]);
-    //   // cell[iOpp] += -omega_plus*one_min_b_plus*(f_plus[i] - fEq_plus[i])
-    //   //   + omega_minus*one_min_b_minus*(f_minus[i] - fEq_minus[i]);
-
-
-    //   // // bounceback part
-    //   // T const coll_plus = fEqSolid_plus[i] - fEq_plus[i];
-    //   // T const coll_minus = (fEqSolid_minus[i]  - f_minus[i]) + (fEq_minus[i]  - f_minus[i]);
-    //   // cell[i] += b_plus*coll_plus + b_minus*coll_minus;
-    //   // cell[iOpp] += b_plus*coll_plus - b_minus*coll_minus;
-      
-    //   // for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-    //   //   this->particleData.hydrodynamicForce[iDim]
-    //   //     -= Descriptor<T>::c[i][iDim]*2.*coll_minus;
-    //   //     // -= Descriptor<T>::c[i][iDim]*2.*coll_plus;
-      
-    // }    
   }
 
   template<typename T, template<typename U> class Descriptor>
