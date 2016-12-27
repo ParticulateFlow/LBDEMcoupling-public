@@ -29,11 +29,11 @@ namespace plb {
     meta::registerGeneralDynamics<T,Descriptor, IBcompositeDynamics<T,Descriptor> >("IBcomposite");
 
   template<typename T, template<typename U> class Descriptor>
-  Array<pluint,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::iOpposite =
-    Array<pluint,Descriptor<T>::q>();
+  Array<T,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::fEqSolid =
+    Array<T,Descriptor<T>::q>();
 
   template<typename T, template<typename U> class Descriptor>
-  Array<T,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::fEqSolid =
+  Array<T,Descriptor<T>::q> IBcompositeDynamics<T,Descriptor>::fEq =
     Array<T,Descriptor<T>::q>();
 
   template<typename T, template<typename U> class Descriptor>
@@ -45,17 +45,7 @@ namespace plb {
 							 bool automaticPrepareCollision_)
     : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_), 
     IBdynamicsParticleData<T,Descriptor>()
-  { 
-    static bool init_iOpposite = false;
-    if(!init_iOpposite){
-      plint const shift = Descriptor<T>::q/2;
-      iOpposite[0] = 0;
-      for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
-        iOpposite[iPop] = iPop <= shift ? iPop + shift : iPop - shift;
-      }      
-      init_iOpposite = true;
-    }
-  }
+  { }
   
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(HierarchicUnserializer &unserializer)
@@ -116,7 +106,6 @@ namespace plb {
   void IBcompositeDynamics<T,Descriptor>::defineVelocity(Cell<T,Descriptor>& cell, 
                                                          Array<T,Descriptor<T>::d> const& u)
   {
-    Array<T,Descriptor<T>::q> fEq;
     T const rhoBar = 1.;
     T const uSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(u); 
     CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,0.,u,uSqr);
@@ -139,43 +128,57 @@ namespace plb {
     
     if(this->particleData.solidFraction < SOLFRAC_MIN)
       return;
-
+    
     T const rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
     Array<T,Descriptor<T>::d> uPart = this->particleData.uPart*(1.+rhoBar);
     T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
     CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEqSolid,rhoBar,uPart,uPartSqr);
 
-    if(this->particleData.solidFraction > SOLFRAC_MAX){
+    if(false && this->particleData.solidFraction > SOLFRAC_MAX){
       cell[0] = fPre[0];
 
-      for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
-        T coll = 0.5*(fPre[iOpposite[iPop]] - fEqSolid[iOpposite[iPop]] + fEqSolid[iPop] - fPre[iPop]);
+      for(plint iPop=1;iPop<=Descriptor<T>::q/2;iPop++){
+        plint const iOpp = iPop + Descriptor<T>::q/2;
+        T const coll = ((fPre[iOpp]-fEqSolid[iOpp]) - (fPre[iPop]-fEqSolid[iPop]));
+        T const collOpp = ((fPre[iPop]-fEqSolid[iPop]) - (fPre[iOpp]-fEqSolid[iOpp]));
         
         cell[iPop] = fPre[iPop] + coll;
+        cell[iOpp] = fPre[iOpp] + collOpp;
 
         for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-          this->particleData.hydrodynamicForce[iDim] -= Descriptor<T>::c[iPop][iDim]*coll;
+          this->particleData.hydrodynamicForce[iDim]
+            -= Descriptor<T>::c[iPop][iDim]*(coll-collOpp);
       }
     } else {
-      T const ooo = 1./CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega() - 0.5;
-
       #ifdef LBDEM_USE_WEIGHING
+      T const ooo = 1./CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega() - 0.5;
       T const B = this->particleData.solidFraction*ooo/((1.- this->particleData.solidFraction) + ooo);
       #else
       T const B = this->particleData.solidFraction;
       #endif
-
       T const oneMinB = 1. - B;
 
-      cell[0] = fPre[0] + oneMinB*(cell[0] - fPre[0]);
+      Array<T,Descriptor<T>::d> j;
+      momentTemplates<T,Descriptor>::get_j(cell,j);
+      T const jSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(j); 
+      CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEq,rhoBar,j,jSqr);
+      {
+        T const coll = fEq[0] - fEqSolid[0];
+        cell[0] = fPre[0] + oneMinB*(cell[0] - fPre[0]) + B*coll;
+      }
 
-      for(plint iPop=1;iPop<Descriptor<T>::q;iPop++){
-        T coll = -B*0.5*(fPre[iOpposite[iPop]] - fEqSolid[iOpposite[iPop]] + fEqSolid[iPop] - fPre[iPop]);
+      for(plint iPop=1;iPop<=Descriptor<T>::q/2;iPop++){
+        plint const iOpp = iPop + Descriptor<T>::q/2;
+        T const coll = B*((fPre[iOpp] - fEq[iOpp]) - (fPre[iPop]-fEqSolid[iPop]));
+        T const collOpp = B*((fPre[iPop] - fEq[iPop]) - (fPre[iOpp]-fEqSolid[iOpp]));
 
-        cell[iPop] = fPre[iPop] + oneMinB*(cell[iPop] - fPre[iPop]) - coll;
+
+        cell[iPop] = fPre[iPop] + oneMinB*(cell[iPop] - fPre[iPop]) + coll;
+        cell[iOpp] = fPre[iOpp] + oneMinB*(cell[iOpp] - fPre[iOpp]) + collOpp;
 
         for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-          this->particleData.hydrodynamicForce[iDim] += Descriptor<T>::c[iPop][iDim]*coll;
+          this->particleData.hydrodynamicForce[iDim]
+            -= Descriptor<T>::c[iPop][iDim]*(coll-collOpp);
       }
     }
     
