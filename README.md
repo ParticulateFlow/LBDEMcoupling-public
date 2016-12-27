@@ -26,7 +26,7 @@ Currently, LBDEMcoupling is compatible with the following versions:
 * LIGGGHTS 3.1
 * Palabos v1.5r1
 
-We are working on establishing compatibility with the latest version of LIGGGHTS.
+We are working on establishing compatibility with the latest version of LIGGGHTS. To ensure maximum compatibility, we have created a Palabos repository to be found [here](https://github.com/ParticulateFlow/Palabos-PFM). This repo contains the most recent vanilla Palabos release as well as a few minor bug fixes and some add-ons developed by PFM. It is recommended to use this version of Palabos with LBDEMcoupling.
 
 <a name="installation"></a>
 ## Installation
@@ -48,7 +48,7 @@ scratch with
 
          make clean-all; make fedora
 
-
+where `fedora` should be replaced with your makefile name as given in the LIGGGHTS manual.
 
 <a name="setting_up"></a>
 ## Setting Up a Simulation
@@ -59,14 +59,91 @@ strongly recommended that you work through a few tutorial and example
 cases.
 
 To compile a case, it is necessary to build LIGGGHTS as a
-library. This is explained in the LIGGGHTS documentation. Compiling a
-case works just like in Palabos. In the Makefile, you will find the
-line
+library. This is explained in the LIGGGHTS documentation. Both shared and static libraries of LIGGGHTS can be used with LBDEMcoupling, although the latter is considered deprecated. Newly added example cases will most likely use shared libraries.
+
+### Makefile settings
+LBDEMcoupling uses the Palabos build system (Makefile frontend with SCons backend). A few settings are required to ensure case compilation will find all the required resources. Here is an example makefile:
+
+```make
+##########################################################################
+## Makefile for the LBDEMcoupling example program benchmark
+##
+## The present Makefile is a pure configuration file, in which
+## you can select compilation options. Compilation dependencies
+## are managed automatically through the Python library SConstruct.
+##
+## If you don't have Python, or if compilation doesn't work for other
+## reasons, consult the Palabos user's guide for instructions on manual
+## compilation.
+##########################################################################
+
+# USE: multiple arguments are separated by spaces.
+#   For example: projectFiles = file1.cpp file2.cpp
+#                optimFlags   = -O -finline-functions
+
+# Leading directory of the Palabos source code
+palabosRoot  = ${PALABOS_ROOT}
+# Name of source files in current directory to compile and link with Palabos
+projectFiles = benchmark.cpp \
+          ${LBDEM_ROOT}/src/liggghtsCouplingWrapper.cpp \ 
+          ${LBDEM_ROOT}/src/latticeDecomposition.cpp
+
+# Set optimization flags on/off
+optimize     = true
+# Set debug mode and debug flags on/off
+debug        = false
+# Set profiling flags on/off
+profile      = false
+# Set MPI-parallel mode on/off (parallelism in cluster-like environment)
+MPIparallel  = true
+# Set SMP-parallel mode on/off (shared-memory parallelism)
+SMPparallel  = false
+# Decide whether to include calls to the POSIX API. On non-POSIX systems,
+#   including Windows, this flag must be false, unless a POSIX environment is
+#   emulated (such as with Cygwin).
+usePOSIX     = true
+# Path to external libraries (other than Palabos)
+libraryPaths = ${LIGGGHTS_ROOT}/src/
+# Path to inlude directories (other than Palabos)
+includePaths = ${LBDEM_ROOT}/src/ ${LIGGGHTS_ROOT}/src
+# Dynamic and static libraries (other than Palabos)
+libraries = liblammps.so
+
+# Compiler to use without MPI parallelism
+serialCXX    = g++
+# Compiler to use with MPI parallelism
+parallelCXX  = mpicxx
+# General compiler flags (e.g. -Wall to turn on all warnings on g++)
+compileFlags = -Wnon-virtual-dtor -Wno-write-strings
+# General linker flags (don't put library includes into this flag)
+# replace -llmp_fedora with the name of your library!
+linkFlags    = 
+# Compiler flags to use when optimization mode is on
+optimFlags   = -O3
+# Compiler flags to use when debug mode is on
+debugFlags   = -g
+# Compiler flags to use when profile mode is on
+profileFlags = -pg
+```
+
+The paths are set through the shell variables `${PALABOS_ROOT}`, `${LIGGGHTS_ROOT}`, and `${LBDEM_ROOT}`. The two addidional source files are part of LBDEMcoupling, and need to be given explicitly. Future versions might detect this dependency automatically. `${LIGGGHTS_ROOT}` and `${LBDEM_ROOT}` are given as include paths because headers from these directories are needed. The other settings are more or less self-explanatory, and are explained in more detail in the Palabos documentation.
+
+#### Static Libraries
+If, for some reason, you are restricted to a static LIGGGHTS library, linking can still be done. Due to some LIGGGHTS internals, the makefile needs to be adjusted: The section 
+
+          libraries = liblammps.so
+          
+needs to be replaced with
+
+          libraries =
+          
+and the static library is linked to the case with
 
           linkFlags    = -Wl,--whole-archive -llmp_fedora -Wl,--no-whole-archive
 
-In this line, you need to replace the -llmp_fedora with the name of
-your library (usually called lmp_whatever).
+Of course, replace `-llmp_fedora` and the like with your library name.
+
+### Coupling API
 
 <a name="gallery"></a>
 ## Gallery
