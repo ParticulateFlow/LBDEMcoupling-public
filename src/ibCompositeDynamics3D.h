@@ -63,6 +63,7 @@ namespace plb {
     // // have static variables for some temporary quantities
     // // to save memory
     static Array<T,Descriptor<T>::q> fEqSolid;
+    static Array<T,Descriptor<T>::q> fEq;
     static Array<T,Descriptor<T>::q> fPre;
   };
 
