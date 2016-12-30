@@ -43,14 +43,12 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(Dynamics<T,Descriptor>* baseDynamics_,
 							 bool automaticPrepareCollision_)
-    : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_), 
-    IBdynamicsParticleData<T,Descriptor>()
+    : CompositeDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_)
   { }
   
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(HierarchicUnserializer &unserializer)
-    : CompositeDynamics<T,Descriptor>(0,false),
-    IBdynamicsParticleData<T,Descriptor>()
+    : CompositeDynamics<T,Descriptor>(0,false)
   {
     // pcout << "entering serialize constructor" << std::endl;
     unserialize(unserializer);
@@ -58,8 +56,7 @@ namespace plb {
 
   template<typename T, template<typename U> class Descriptor>
   IBcompositeDynamics<T,Descriptor>::IBcompositeDynamics(const IBcompositeDynamics &orig)
-    : CompositeDynamics<T,Descriptor>(orig),
-    IBdynamicsParticleData<T,Descriptor>(orig)
+    : CompositeDynamics<T,Descriptor>(orig)
   { }
   
   template<typename T, template<typename U> class Descriptor>
@@ -79,8 +76,15 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   void IBcompositeDynamics<T,Descriptor>::serialize(HierarchicSerializer &serializer) const
   {
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      serializer.addValue(particleData.uPart[i]);
 
-    this->particleData.serialize(serializer);
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      serializer.addValue(particleData.hydrodynamicForce[i]);
+    
+    serializer.addValue(particleData.solidFraction);
+    serializer.addValue<plint>(particleData.partId);
+
     CompositeDynamics<T,Descriptor>::serialize(serializer);
   }
 
@@ -89,7 +93,15 @@ namespace plb {
   {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
 
-    this->particleData.unserialize(unserializer);
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      unserializer.readValue(particleData.uPart[i]);
+
+    for(plint i=0;i<Descriptor<T>::d;i++)
+      unserializer.readValue(particleData.hydrodynamicForce[i]);
+
+    unserializer.readValue(particleData.solidFraction);
+    unserializer.readValue<plint>(particleData.partId);
+
     CompositeDynamics<T,Descriptor>::unserialize(unserializer);
   }
   
@@ -97,7 +109,7 @@ namespace plb {
   void IBcompositeDynamics<T,Descriptor>::prepareCollision(Cell<T,Descriptor>& cell)
   {
 
-    if(this->particleData.solidFraction > SOLFRAC_MIN)
+    if(particleData.solidFraction > SOLFRAC_MIN)
       fPre = cell.getRawPopulations();
 
   }
@@ -121,20 +133,20 @@ namespace plb {
 
     prepareCollision(cell);
 
-    this->particleData.hydrodynamicForce.resetToZero();
+    particleData.hydrodynamicForce.resetToZero();
 
-    if(this->particleData.solidFraction <= SOLFRAC_MAX)
+    if(particleData.solidFraction <= SOLFRAC_MAX)
       CompositeDynamics<T,Descriptor>::getBaseDynamics().collide(cell,statistics);
     
-    if(this->particleData.solidFraction < SOLFRAC_MIN)
+    if(particleData.solidFraction < SOLFRAC_MIN)
       return;
     
     T const rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
-    Array<T,Descriptor<T>::d> uPart = this->particleData.uPart*(1.+rhoBar);
+    Array<T,Descriptor<T>::d> uPart = particleData.uPart*(1.+rhoBar);
     T const uPartSqr = VectorTemplateImpl<T,Descriptor<T>::d>::normSqr(uPart); 
     CompositeDynamics<T,Descriptor>::getBaseDynamics().computeEquilibria(fEqSolid,rhoBar,uPart,uPartSqr);
 
-    if(false && this->particleData.solidFraction > SOLFRAC_MAX){
+    if(false && particleData.solidFraction > SOLFRAC_MAX){
       cell[0] = fPre[0];
 
       for(plint iPop=1;iPop<=Descriptor<T>::q/2;iPop++){
@@ -146,15 +158,15 @@ namespace plb {
         cell[iOpp] = fPre[iOpp] + collOpp;
 
         for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-          this->particleData.hydrodynamicForce[iDim]
+          particleData.hydrodynamicForce[iDim]
             -= Descriptor<T>::c[iPop][iDim]*(coll-collOpp);
       }
     } else {
       #ifdef LBDEM_USE_WEIGHING
       T const ooo = 1./CompositeDynamics<T,Descriptor>::getBaseDynamics().getOmega() - 0.5;
-      T const B = this->particleData.solidFraction*ooo/((1.- this->particleData.solidFraction) + ooo);
+      T const B = particleData.solidFraction*ooo/((1.- particleData.solidFraction) + ooo);
       #else
-      T const B = this->particleData.solidFraction;
+      T const B = particleData.solidFraction;
       #endif
       T const oneMinB = 1. - B;
 
@@ -177,7 +189,7 @@ namespace plb {
         cell[iOpp] = fPre[iOpp] + oneMinB*(cell[iOpp] - fPre[iOpp]) + collOpp;
 
         for(plint iDim=0;iDim<Descriptor<T>::d;iDim++)
-          this->particleData.hydrodynamicForce[iDim]
+          particleData.hydrodynamicForce[iDim]
             -= Descriptor<T>::c[iPop][iDim]*(coll-collOpp);
       }
     }
