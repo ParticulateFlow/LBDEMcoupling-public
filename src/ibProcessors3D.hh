@@ -63,17 +63,14 @@ namespace plb{
             getParticleDataFromCell<T,Descriptor>(cell);
 
           if(!particleData) continue;
+
+          // this one actually helps, believe it or not
+          __builtin_prefetch(particleData,1);
           
           T const xGlobal = (T) (relativePosition.x + iX);
           T const yGlobal = (T) (relativePosition.y + iY);
           T const zGlobal = (T) (relativePosition.z + iZ);
 
-          // particleData is a _member_ of IBdynamicsParticleData
-          // this was done because dynamics classes inherit from it
-          // and so all the data remain bundled in one place
-          T const sf_old = particleData->solidFraction;
-          int const id_old = (int) particleData->partId;
-          
                     
           T const dx = xGlobal - x[0];
           T const dy = yGlobal - x[1];
@@ -85,6 +82,9 @@ namespace plb{
 
           T const sf = calcSolidFraction(dx,dy,dz,r);
 
+          T const sf_old = particleData->solidFraction;
+          int const id_old = (int) particleData->partId;
+          
           plint const decFlag = (sf > SOLFRAC_MIN) + 2*(sf_old > SOLFRAC_MIN);
           
           switch(decFlag){

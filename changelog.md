@@ -1,3 +1,8 @@
+## 2016-12-30
+
+- reverted class design layout from previous release due to performance issues
+- a few more performance tweaks behind the scene
+
 ## 2016-12-27
 
 - extended documentation
