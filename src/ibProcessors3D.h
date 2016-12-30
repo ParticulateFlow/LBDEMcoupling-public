@@ -52,9 +52,9 @@ namespace plb{
     int id;
     bool initVelFlag;
     T calcSolidFraction(T const dx_, T const dy_, T const dz_, T const r_);
-    void setValues(IBdynamicsParticleDataContainer<T,Descriptor> &p, 
+    void setValues(IBdynamicsParticleData<T,Descriptor> &p, 
                    T const sf, T const dx, T const dy, T const dz);
-    void setToZero(IBdynamicsParticleDataContainer<T,Descriptor> &p);
+    void setToZero(IBdynamicsParticleData<T,Descriptor> &p);
   };
   
   /*

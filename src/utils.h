@@ -38,15 +38,20 @@ namespace plb {
   template<typename T, template<typename U> class Descriptor>
   IBdynamicsParticleData<T,Descriptor>* getParticleDataFromCell(Cell<T,Descriptor> &cell)
   {
-    Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
-    IBdynamicsParticleData<T,Descriptor>* pd
-      = dynamic_cast<IBdynamicsParticleData<T,Descriptor>* >(dyn);
+    static IBcompositeDynamics<T,Descriptor> cdyn(new NoDynamics<T,Descriptor>(),false);
+    static plint const cdynId = cdyn.getId();
 
-    while(!pd && dyn->isComposite()){
+    Dynamics<T,Descriptor> *dyn = &(cell.getDynamics());
+
+    if(dyn->getId() == cdynId)
+      return &( (static_cast< IBcompositeDynamics<T,Descriptor>* >(dyn))->particleData );
+
+    while(dyn->isComposite()){
       dyn = &(static_cast<CompositeDynamics<T,Descriptor>* >(dyn))->getBaseDynamics();
-      pd = dynamic_cast<IBdynamicsParticleData<T,Descriptor>* >(dyn);
+      if(dyn->getId() == cdynId)
+        return &( (static_cast< IBcompositeDynamics<T,Descriptor>* >(dyn))->particleData );
     }
-    return pd;
+    return 0;
   }
 
 }; /* namespace plb */

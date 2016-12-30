@@ -30,8 +30,7 @@
 namespace plb {
 
   template<typename T, template<typename U> class Descriptor>
-  class IBcompositeDynamics : public CompositeDynamics<T,Descriptor>,
-                              public IBdynamicsParticleData<T,Descriptor>
+  class IBcompositeDynamics : public CompositeDynamics<T,Descriptor>
   {
   public:
 
@@ -54,12 +53,11 @@ namespace plb {
     virtual void defineVelocity(Cell<T,Descriptor>& cell, 
                                 Array<T,Descriptor<T>::d> const& u);
 
+    IBdynamicsParticleData<T,Descriptor> particleData;
   private:
     static int id;  
 
     // performance tweaks
-    // // precompute opposite indices - done in constructor
-    static Array<pluint,Descriptor<T>::q> iOpposite;
     // // have static variables for some temporary quantities
     // // to save memory
     static Array<T,Descriptor<T>::q> fEqSolid;

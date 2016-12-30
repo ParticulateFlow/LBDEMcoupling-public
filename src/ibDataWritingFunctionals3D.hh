@@ -47,10 +47,10 @@ namespace plb {
           if(particleData){
             switch(which){
             case SolidFraction:
-              val = (T2) particleData->particleData.solidFraction;
+              val = (T2) particleData->solidFraction;
               break;
             case ParticleId:
-              val = (T2) particleData->particleData.partId;
+              val = (T2) particleData->partId;
               break;
           
             }
@@ -99,10 +99,10 @@ namespace plb {
           if(particleData){
             switch(which){
             case ParticleVelocity:
-              val = particleData->particleData.uPart;
+              val = particleData->uPart;
               break;
             case HydrodynamicForce:
-              val = particleData->particleData.hydrodynamicForce;
+              val = particleData->hydrodynamicForce;
               break;
             
             }

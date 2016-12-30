@@ -71,8 +71,8 @@ namespace plb{
           // particleData is a _member_ of IBdynamicsParticleData
           // this was done because dynamics classes inherit from it
           // and so all the data remain bundled in one place
-          T const sf_old = particleData->particleData.solidFraction;
-          int const id_old = (int) particleData->particleData.partId;
+          T const sf_old = particleData->solidFraction;
+          int const id_old = (int) particleData->partId;
           
                     
           T const dx = xGlobal - x[0];
@@ -89,23 +89,23 @@ namespace plb{
           
           switch(decFlag){
           case 0: // sf == 0 && sf_old == 0
-            setToZero(particleData->particleData);
+            setToZero(*particleData);
             break; // do nothing
           case 1: // sf > 0 && sf_old == 0
-            setValues(particleData->particleData,sf,dx_com,dy_com,dz_com);
+            setValues(*particleData,sf,dx_com,dy_com,dz_com);
             break;
           case 2: // sf == 0 && sf_old > 0
             if( id_old == id ) // then particle has left this cell
-              setToZero(particleData->particleData);
+              setToZero(*particleData);
             break; // else do nothing
           case 3: // sf > 0 && sf_old > 0
             if( sf > sf_old || id_old == id )
-              setValues(particleData->particleData,sf,dx_com,dy_com,dz_com);
+              setValues(*particleData,sf,dx_com,dy_com,dz_com);
             break; // else do nothing
           }
           // if desired, initialize interior of sphere with sphere velocity
           if(initVelFlag && sf > SOLFRAC_MAX)
-            cell.defineVelocity(particleData->particleData.uPart);
+            cell.defineVelocity(particleData->uPart);
 
         }
       }
@@ -160,7 +160,7 @@ namespace plb{
 
 
   template<typename T, template<typename U> class Descriptor>
-  void SetSingleSphere3D<T,Descriptor>::setValues(IBdynamicsParticleDataContainer<T,Descriptor> &p,
+  void SetSingleSphere3D<T,Descriptor>::setValues(IBdynamicsParticleData<T,Descriptor> &p,
                                                   T const sf, T const dx, T const dy, T const dz)
   {    
     p.uPart.from_cArray(v);
@@ -174,7 +174,7 @@ namespace plb{
   }
   
   template<typename T, template<typename U> class Descriptor>
-  void SetSingleSphere3D<T,Descriptor>::setToZero(IBdynamicsParticleDataContainer<T,Descriptor> &p)
+  void SetSingleSphere3D<T,Descriptor>::setToZero(IBdynamicsParticleData<T,Descriptor> &p)
   {
     p.uPart[0] = 0;
     p.uPart[1] = 0;
@@ -219,7 +219,7 @@ namespace plb{
           if(!particleData) continue;
 
           // LIGGGHTS indices start at 1
-          plint const id = particleData->particleData.partId;
+          plint const id = particleData->partId;
           if(id < 1) continue; // no particle here
 
           plint const ind = wrapper.lmp->atom->map(id);
@@ -242,9 +242,9 @@ namespace plb{
           if(dz > nz/2) dz -= nz;
           else if(dz < -nz/2) dz += nz;
 	           
-          T const forceX = particleData->particleData.hydrodynamicForce[0];
-          T const forceY = particleData->particleData.hydrodynamicForce[1];
-          T const forceZ = particleData->particleData.hydrodynamicForce[2];
+          T const forceX = particleData->hydrodynamicForce[0];
+          T const forceY = particleData->hydrodynamicForce[1];
+          T const forceZ = particleData->hydrodynamicForce[2];
           
           T const torqueX = dy*forceZ - dz*forceY;
           T const torqueY = -dx*forceZ + dz*forceX;
