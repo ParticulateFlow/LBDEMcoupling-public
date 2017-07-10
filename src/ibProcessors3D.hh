@@ -211,6 +211,7 @@ namespace plb{
       for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
         for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
 
+          
           Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
 
           IBdynamicsParticleData<T,Descriptor>* particleData =
@@ -223,6 +224,11 @@ namespace plb{
           if(id < 1) continue; // no particle here
 
           plint const ind = wrapper.lmp->atom->map(id);
+          
+#ifdef PLB_DEBUG
+          pcerr << "SumForceTorque at " << iX << " " << iY << " " << iZ << std::endl;
+          pcerr << "particle id: " << id << " particle index: " << ind << std::endl;
+#endif
           
           T const xGlobal = (T) (relativePosition.x + iX);
           T const yGlobal = (T) (relativePosition.y + iY);

@@ -165,11 +165,19 @@ namespace plb {
     // debug stuff
     plint r = global::mpi().getRank();
 
+#ifdef PLB_DEBUG
+    pcerr << "entering getForcesFromLattice" << std::endl;
+#endif
+    
     static std::vector<T> force,torque;
     static typename ParticleData<T>::ParticleDataArrayVector x_lb;
 
     plint const nPart = wrapper.lmp->atom->nlocal + wrapper.lmp->atom->nghost;
     plint const n_force = nPart*3;
+
+#ifdef PLB_DEBUG
+    pcerr << "number of particles: " << nPart << std::endl;
+#endif
 
     if(nPart == 0) return; // no particles - no work
 
@@ -207,6 +215,10 @@ namespace plb {
       }
     }
 
+#ifdef PLB_DEBUG
+    pcerr << "starting SumForceTorque" << std::endl;
+#endif
+    
     SumForceTorque3D<T,Descriptor> *sft = new SumForceTorque3D<T,Descriptor>(x_lb,
                                                                              &force.front(),&torque.front(),
                                                                              wrapper);
