@@ -21,6 +21,8 @@
 #include "liggghtsCouplingWrapper.h"
 #include "mpi.h"
 
+#include <cstring>
+
 LiggghtsCouplingWrapper::LiggghtsCouplingWrapper(char **argv, MPI_Comm communicator)
   : lmp(0)
 {
@@ -28,12 +30,13 @@ LiggghtsCouplingWrapper::LiggghtsCouplingWrapper(char **argv, MPI_Comm communica
   int argc_lmp = 1;
   char **argv_lmp = 0;
   argv_lmp = new char*[1];
-  argv_lmp[0] = argv[0];
+  argv_lmp[0] = new char[strlen(argv[0])+2];
+  strcpy(argv_lmp[0],argv[0]);
 
   lmp = new LAMMPS_NS::LAMMPS(argc_lmp,argv_lmp,communicator);
 
-  //    delete[] argv_lmp[0];
-  delete[] argv_lmp;
+  // delete[] argv_lmp[0];
+  // delete[] argv_lmp;
 }
 void LiggghtsCouplingWrapper::execFile(char* const fname)
 {
