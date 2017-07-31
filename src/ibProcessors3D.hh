@@ -234,7 +234,7 @@ namespace plb{
           // in this case, we set all particle-based values to zero
           // and pray to the deity of our choice that the simulation may survive this
           if(ind < 0){
-            setToZero(particleData);
+            fadeOutDisappearedParticle(particleData);
             continue;
           }
           
@@ -281,8 +281,26 @@ namespace plb{
   {
     pd->partId = 0;
     pd->solidFraction = 0.;
-    pd.uPart[0] = pd.uPart[1] = pd.uPart[2] = 0.;
-    pd.hydrodynamicForce[0] = pd.hydrodynamicForce[1] = pd.hydrodynamicForce[2] = 0.;
+    pd->uPart[0] = pd->uPart[1] = pd->uPart[2] = 0.;
+    pd->hydrodynamicForce[0] = pd->hydrodynamicForce[1] = pd->hydrodynamicForce[2] = 0.;
+  }
+
+  template<typename T, template<typename U> class Descriptor>
+  void SumForceTorque3D<T,Descriptor>::fadeOutDisappearedParticle(IBdynamicsParticleData<T,Descriptor>* pd)
+  {
+    double const fadeFactor = 0.9;
+    double const zeroCutoff = 0.1;
+
+    pd->solidFraction *= fadeFactor;
+
+    if(pd->solidFraction < zeroCutoff){
+      setToZero(pd);
+    } else {
+      for(int i=0;i<3;i++){
+        pd->uPart[i] *= fadeFactor;
+        pd->hydrodynamicForce[i] *= fadeFactor;
+      }
+    }
   }
 
   template<typename T, template<typename U> class Descriptor>

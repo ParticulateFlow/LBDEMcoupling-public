@@ -92,6 +92,7 @@ namespace plb{
     void addForce(plint const partId, plint const coord, T const value);
     void addTorque(plint const partId, plint const coord, T const value);
     void setToZero(IBdynamicsParticleData<T,Descriptor> *pd);
+    void fadeOutDisappearedParticle(IBdynamicsParticleData<T,Descriptor> *pd);
   };
 
 
