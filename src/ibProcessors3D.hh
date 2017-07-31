@@ -281,8 +281,8 @@ namespace plb{
   {
     pd->partId = 0;
     pd->solidFraction = 0.;
-    pd.uPart[0] = pd.uPart[1] = pd.uPart[2] = 0.;
-    pd.hydrodynamicForce[0] = pd.hydrodynamicForce[1] = pd.hydrodynamicForce[2] = 0.;
+    pd->uPart[0] = pd->uPart[1] = pd->uPart[2] = 0.;
+    pd->hydrodynamicForce[0] = pd->hydrodynamicForce[1] = pd->hydrodynamicForce[2] = 0.;
   }
 
   template<typename T, template<typename U> class Descriptor>
