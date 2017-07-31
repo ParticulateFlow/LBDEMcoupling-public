@@ -229,6 +229,14 @@ namespace plb{
           pcerr << "SumForceTorque at " << iX << " " << iY << " " << iZ << std::endl;
           pcerr << "particle id: " << id << " particle index: " << ind << std::endl;
 #endif
+
+          // the only case where this can happen is when a particle has disappeared
+          // in this case, we set all particle-based values to zero
+          // and pray to the deity of our choice that the simulation may survive this
+          if(ind < 0){
+            setToZero(particleData);
+            continue;
+          }
           
           T const xGlobal = (T) (relativePosition.x + iX);
           T const yGlobal = (T) (relativePosition.y + iY);
@@ -268,6 +276,14 @@ namespace plb{
     }
   }
         
+  template<typename T, template<typename U> class Descriptor>
+  void SumForceTorque3D<T,Descriptor>::setToZero(IBdynamicsParticleData<T,Descriptor>* pd)
+  {
+    pd->partId = 0;
+    pd->solidFraction = 0.;
+    pd.uPart[0] = pd.uPart[1] = pd.uPart[2] = 0.;
+    pd.hydrodynamicForce[0] = pd.hydrodynamicForce[1] = pd.hydrodynamicForce[2] = 0.;
+  }
 
   template<typename T, template<typename U> class Descriptor>
   void SumForceTorque3D<T,Descriptor>::addForce(plint const partId, plint const coord, T const value)
